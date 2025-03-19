@@ -1,8 +1,51 @@
 {
-	"name": "get-start-block",
+	"name": "contract-analyzer",
 	"version": "1.0.0",
+	"description": "A utility to analyze smart contracts on Ethereum and other EVM-compatible blockchains",
 	"type": "module",
+	"main": "startBlock.js",
+	"bin": {
+		"contract-analyzer": "./cli.js"
+	},
+	"scripts": {
+		"start": "node startBlock.js",
+		"test": "node test-local.js",
+		"dev": "node test-local.js",
+		"analyze": "node cli.js analyze",
+		"networks:list": "node cli.js networks list",
+		"networks:add": "node cli.js networks add",
+		"setup": "node setup.js",
+		"help": "node help.js"
+	},
+	"keywords": [
+		"ethereum",
+		"blockchain",
+		"smart-contract",
+		"block-number",
+		"deployment",
+		"ethers",
+		"abi",
+		"events",
+		"verification",
+		"subgraph"
+	],
+	"author": "",
+	"license": "MIT",
 	"dependencies": {
-		"ethers": "^6.13.5"
-	}
+		"ethers": "^6.13.5",
+		"commander": "^11.1.0",
+		"dotenv": "^16.3.1",
+		"nanospinner": "^1.1.0"
+	},
+	"engines": {
+		"node": ">=16.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/yourusername/contract-analyzer.git"
+	},
+	"bugs": {
+		"url": "https://github.com/yourusername/contract-analyzer/issues"
+	},
+	"homepage": "https://github.com/yourusername/contract-analyzer#readme"
 }

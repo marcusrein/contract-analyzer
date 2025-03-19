@@ -1,1 +1,6 @@
 node_modules
+.env
+contract-info/
+subgraph/
+.DS_Store
+.get-start-block/
