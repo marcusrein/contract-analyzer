@@ -7,9 +7,99 @@
 import { ethers } from "ethers";
 
 /**
+ * Get common NFT event signatures for known contracts like CryptoPunks
+ * Used when ABI is not available or incomplete
+ * 
+ * @param {string} contractAddress - The contract address
+ * @returns {Array} Array of event signatures for common NFT events
+ */
+function getCommonNFTEventSignatures(contractAddress) {
+    const isLowerCase = contractAddress.toLowerCase();
+    
+    // Common NFT event signatures
+    const commonEvents = [
+        {
+            name: 'Transfer',
+            signature: 'Transfer(address,address,uint256)',
+            signatureHash: '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+            inputs: [
+                { name: 'from', type: 'address', indexed: true },
+                { name: 'to', type: 'address', indexed: true },
+                { name: 'tokenId', type: 'uint256', indexed: true }
+            ],
+            anonymous: false
+        },
+        {
+            name: 'Approval',
+            signature: 'Approval(address,address,uint256)',
+            signatureHash: '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925',
+            inputs: [
+                { name: 'owner', type: 'address', indexed: true },
+                { name: 'approved', type: 'address', indexed: true },
+                { name: 'tokenId', type: 'uint256', indexed: true }
+            ],
+            anonymous: false
+        },
+        {
+            name: 'ApprovalForAll',
+            signature: 'ApprovalForAll(address,address,bool)',
+            signatureHash: '0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31',
+            inputs: [
+                { name: 'owner', type: 'address', indexed: true },
+                { name: 'operator', type: 'address', indexed: true },
+                { name: 'approved', type: 'bool', indexed: false }
+            ],
+            anonymous: false
+        }
+    ];
+    
+    // CryptoPunks specific events
+    if (isLowerCase === '0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb') {
+        return [
+            ...commonEvents,
+            {
+                name: 'Assign',
+                signature: 'Assign(address,uint256)',
+                signatureHash: '0x8a0e37b73a0d9c82e205d4d1a3ff3d0b57ce5f4d7bccf6bac03336dc101cb7ba',
+                inputs: [
+                    { name: 'to', type: 'address', indexed: true },
+                    { name: 'punkIndex', type: 'uint256', indexed: false }
+                ],
+                anonymous: false
+            },
+            {
+                name: 'PunkTransfer',
+                signature: 'PunkTransfer(address,address,uint256)',
+                signatureHash: '0x05af636b70da6819000c49f85b21fa82081c632069bb626f30932034099107d8',
+                inputs: [
+                    { name: 'from', type: 'address', indexed: true },
+                    { name: 'to', type: 'address', indexed: true },
+                    { name: 'punkIndex', type: 'uint256', indexed: false }
+                ],
+                anonymous: false
+            },
+            {
+                name: 'PunkBought',
+                signature: 'PunkBought(uint256,uint256,address,address)',
+                signatureHash: '0x58e5d5a525e3b40bc15abaa38b5882678db1ee68befd2f60bafe3a7fd06db9e3',
+                inputs: [
+                    { name: 'punkIndex', type: 'uint256', indexed: false },
+                    { name: 'value', type: 'uint256', indexed: false },
+                    { name: 'fromAddress', type: 'address', indexed: true },
+                    { name: 'toAddress', type: 'address', indexed: true }
+                ],
+                anonymous: false
+            }
+        ];
+    }
+    
+    return commonEvents;
+}
+
+/**
  * Get contract verification status and ABI from block explorer
  * 
- * @param {string} rpcUrl - The RPC URL for the blockchain network
+ * @param {string} rpcUrl - Not used - kept for backward compatibility
  * @param {string} contractAddress - The address of the contract to check
  * @param {string} explorerApiKey - API key for the block explorer
  * @param {string} [blockExplorerUrl='https://api.etherscan.io/api'] - Block explorer API URL
@@ -18,10 +108,6 @@ import { ethers } from "ethers";
 async function getContractInfo(rpcUrl, contractAddress, explorerApiKey, blockExplorerUrl = 'https://api.etherscan.io/api') {
     try {
         // Validate input parameters
-        if (!rpcUrl || typeof rpcUrl !== 'string') {
-            throw new Error('API_KEY_ERROR: Invalid RPC URL provided');
-        }
-        
         if (!contractAddress || typeof contractAddress !== 'string' || !ethers.isAddress(contractAddress)) {
             throw new Error('VALIDATION_ERROR: Invalid contract address provided');
         }
@@ -33,6 +119,9 @@ async function getContractInfo(rpcUrl, contractAddress, explorerApiKey, blockExp
         if (explorerApiKey.includes('your-') || explorerApiKey === 'your-key') {
             throw new Error('API_KEY_ERROR: Block explorer API key contains placeholder text');
         }
+
+        // Get website URL for explorer links
+        const blockScannerWebsiteUrl = process.env.BLOCKSCANNER_URL || 'https://etherscan.io';
 
         // Fetch contract source code and ABI
         let response;
@@ -56,63 +145,72 @@ async function getContractInfo(rpcUrl, contractAddress, explorerApiKey, blockExp
         }
         
         if (data.status !== '1') {
-            // Check for API key related errors
-            if (data.message?.includes('Invalid API Key') || data.message?.includes('rate limit')) {
-                throw new Error(`API_KEY_ERROR: Block explorer API key error: ${data.message}`);
-            }
-            throw new Error(`EXPLORER_ERROR: Failed to fetch contract info: ${data.message || 'Unknown error'}`);
+            console.warn(`Warning: Block explorer returned non-success status: ${data.message}`);
         }
-
-        const contractInfo = data.result[0];
         
-        // Check if contract is verified
-        const isVerified = contractInfo.ABI !== '[]' && contractInfo.ABI !== 'Contract source code not verified';
+        if (!data.result || !Array.isArray(data.result) || data.result.length === 0) {
+            return null;
+        }
         
-        // Parse ABI and extract event information
+        const contractData = data.result[0];
+        const isVerified = contractData.ABI !== "Contract source code not verified";
+        
+        // Parse ABI if contract is verified
         let abi = null;
-        let eventSignatures = [];
-        
-        if (isVerified) {
+        if (isVerified && contractData.ABI !== '') {
             try {
-                abi = JSON.parse(contractInfo.ABI);
-                
-                // Extract event information from ABI
-                eventSignatures = extractEventSignatures(abi);
+                abi = JSON.parse(contractData.ABI);
             } catch (abiError) {
                 console.warn(`Warning: Could not parse ABI: ${abiError.message}`);
             }
         }
         
-        // Build contract info object with everything from the response
+        // Check if the contract is a proxy
+        let isProxy = false;
+        let implementation = '';
+        
+        // Detect various proxy patterns
+        if (contractData.Implementation && contractData.Implementation !== '') {
+            isProxy = true;
+            implementation = contractData.Implementation;
+        } else if (contractData.SourceCode && contractData.SourceCode.includes('delegatecall')) {
+            isProxy = true;
+        }
+        
+        // Extract event signatures from ABI
+        let eventSignatures = [];
+        if (abi) {
+            eventSignatures = extractEventSignatures(abi);
+        }
+        
+        // If no event signatures were found but this is a known contract, use common signatures
+        if (eventSignatures.length === 0) {
+            console.log('⚠️ No event signatures found in ABI. Using common NFT event signatures...');
+            eventSignatures = getCommonNFTEventSignatures(contractAddress);
+        }
+        
+        // Create the result object
         const result = {
             isVerified,
             abi,
-            sourceCode: isVerified ? contractInfo.SourceCode : null,
-            compilerVersion: contractInfo.CompilerVersion,
-            optimizationUsed: contractInfo.OptimizationUsed,
-            runs: contractInfo.Runs,
-            constructorArguments: contractInfo.ConstructorArguments,
-            licenseType: contractInfo.LicenseType,
-            proxy: contractInfo.Proxy === '1',
-            implementation: contractInfo.Implementation,
-            swarmSource: contractInfo.SwarmSource,
+            contractName: contractData.ContractName || '',
+            compiler: contractData.CompilerVersion || '',
+            sourceCode: contractData.SourceCode || '',
+            proxy: isProxy,
+            implementation: implementation,
             eventSignatures,
-            // Add a function to generate subgraph templates
-            generateSubgraphTemplates: () => generateSubgraphTemplates({ 
-                abi, 
-                eventSignatures,
-                isVerified
-            })
+            // Add direct link to the contract on the block explorer
+            explorerUrl: `${blockScannerWebsiteUrl}/address/${contractAddress}`,
+            // Add link to the contract source code if verified
+            sourceUrl: isVerified ? `${blockScannerWebsiteUrl}/address/${contractAddress}#code` : null,
+            // Add a function to generate subgraph templates if the contract is verified
+            generateSubgraphTemplates: isVerified ? () => generateSubgraphTemplates(contractAddress, abi, eventSignatures) : null
         };
         
         return result;
     } catch (error) {
-        console.error('Error fetching contract info:', error.message);
-        // Rethrow API key errors so they can be handled by the main script
-        if (error.message.includes('API_KEY_ERROR')) {
-            throw error;
-        }
-        return null;
+        console.error(`Error in getContractInfo: ${error.message}`);
+        throw error;
     }
 }
 
@@ -146,71 +244,110 @@ function extractEventSignatures(abi) {
 }
 
 /**
- * Get all events emitted by a contract
+ * Get events by topic from block explorer instead of using RPC
  * 
- * @param {string} rpcUrl - The RPC URL for the blockchain network
- * @param {string} contractAddress - The address of the contract to check
+ * @param {string} blockExplorerUrl - Block explorer API URL
+ * @param {string} contractAddress - Address of the contract
+ * @param {string} explorerApiKey - API key for the block explorer
  * @param {number} fromBlock - Starting block number
  * @param {number} toBlock - Ending block number
- * @returns {Promise<Object>} Object containing event metadata
+ * @param {string} topic0 - Event signature topic (optional)
+ * @returns {Promise<Array>} An array of events from the block explorer
  */
-async function getContractEvents(rpcUrl, contractAddress, fromBlock, toBlock) {
+async function getEventsFromExplorer(blockExplorerUrl, contractAddress, explorerApiKey, fromBlock, toBlock, topic0 = null) {
     try {
-        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        console.log(`🔍 Fetching events from block ${fromBlock} to ${toBlock}...`);
         
-        // Get all events for the contract
-        const filter = {
-            address: contractAddress,
-            fromBlock: fromBlock,
-            toBlock: Math.min(fromBlock + 1000, toBlock) // Only get a sample of events
-        };
-
-        let logs;
-        try {
-            logs = await provider.getLogs(filter);
-        } catch (logsError) {
-            // If we get an error for too large a range, try with a smaller range
-            if (logsError.message.includes('log limit') || logsError.message.includes('block range')) {
-                console.log('Warning: Block range too large for events, reducing sample size...');
-                // Try with a much smaller range
-                const newFilter = {
-                    address: contractAddress,
-                    fromBlock: fromBlock,
-                    toBlock: Math.min(fromBlock + 100, toBlock)
-                };
-                logs = await provider.getLogs(newFilter);
-            } else {
-                throw new Error(`NETWORK_ERROR: Failed to get logs: ${logsError.message}`);
-            }
+        let url = `${blockExplorerUrl}?module=logs&action=getLogs&address=${contractAddress}&fromBlock=${fromBlock}&toBlock=${toBlock}&apikey=${explorerApiKey}`;
+        
+        if (topic0) {
+            url += `&topic0=${topic0}`;
+            console.log(`🔍 Filtering by topic0: ${topic0}`);
         }
         
-        // Group events by event signature (topic0)
-        const events = {};
-        for (const log of logs) {
-            const eventSignature = log.topics[0];
-            if (!events[eventSignature]) {
-                events[eventSignature] = {
-                    count: 0,
-                    signature: eventSignature,
-                    firstBlock: log.blockNumber,
-                    sample: {
-                        blockNumber: log.blockNumber,
-                        transactionHash: log.transactionHash,
-                        topics: log.topics
-                    }
-                };
-            }
-            events[eventSignature].count++;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            console.error(`❌ Block explorer API request failed: ${response.status} ${response.statusText}`);
+            return [];
         }
-
-        return Object.values(events);
+        
+        const data = await response.json();
+        
+        if (data.status === '1' && Array.isArray(data.result)) {
+            console.log(`✅ Retrieved ${data.result.length} events from block explorer`);
+            return data.result;
+        } else if (data.status === '0' && data.message && data.message.includes('Query Timeout')) {
+            console.warn(`⚠️ Block explorer query timeout detected. The range might be too large.`);
+            
+            // If the range is too large, try to split it in half and make recursive calls
+            if (toBlock - fromBlock > 1000) {
+                console.log(`🔄 Splitting block range...`);
+                const midBlock = Math.floor((fromBlock + toBlock) / 2);
+                
+                // Get events from first half
+                const firstHalfEvents = await getEventsFromExplorer(
+                    blockExplorerUrl, 
+                    contractAddress, 
+                    explorerApiKey, 
+                    fromBlock, 
+                    midBlock,
+                    topic0
+                );
+                
+                // Get events from second half
+                const secondHalfEvents = await getEventsFromExplorer(
+                    blockExplorerUrl, 
+                    contractAddress, 
+                    explorerApiKey, 
+                    midBlock + 1, 
+                    toBlock,
+                    topic0
+                );
+                
+                // Combine results
+                return [...firstHalfEvents, ...secondHalfEvents];
+            }
+            
+            return [];
+        } else {
+            console.warn(`⚠️ Block explorer logs returned non-success status: ${data.message}`);
+            return [];
+        }
     } catch (error) {
-        console.error('Error fetching contract events:', error.message);
-        // Rethrow network errors so they can be handled by the main script
-        if (error.message.includes('NETWORK_ERROR')) {
-            throw error;
-        }
-        return null;
+        console.error(`❌ Error getting events from explorer: ${error.message}`);
+        return [];
+    }
+}
+
+/**
+ * Get contract events (replacement using block explorer instead of RPC)
+ * This is kept for backward compatibility but now uses the block explorer API
+ * 
+ * @param {string} rpcUrl - Not used - kept for backward compatibility
+ * @param {string} contractAddress - Address of the contract 
+ * @param {number} fromBlock - Starting block number
+ * @param {number} toBlock - Ending block number
+ * @param {string} [blockExplorerUrl='https://api.etherscan.io/api'] - Block explorer API URL
+ * @param {string} explorerApiKey - API key for the block explorer
+ * @returns {Promise<Array>} - An array of contract events
+ */
+async function getContractEvents(rpcUrl, contractAddress, fromBlock, toBlock, blockExplorerUrl = 'https://api.etherscan.io/api', explorerApiKey) {
+    // For backward compatibility, extract explorer API key from environment if not provided
+    if (!explorerApiKey) {
+        explorerApiKey = process.env.ETHERSCAN_API_KEY;
+    }
+    
+    if (!explorerApiKey) {
+        console.warn('No block explorer API key provided for event retrieval');
+        return [];
+    }
+    
+    try {
+        return await getEventsFromExplorer(blockExplorerUrl, contractAddress, explorerApiKey, fromBlock, toBlock);
+    } catch (error) {
+        console.error(`Error getting contract events: ${error.message}`);
+        return [];
     }
 }
 

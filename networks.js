@@ -16,7 +16,6 @@ const NETWORKS_FILE = path.join(CONFIG_DIR, 'networks.json');
 const DEFAULT_NETWORKS = {
     ethereum: {
         name: 'Ethereum Mainnet',
-        rpcFormat: 'https://eth-mainnet.g.alchemy.com/v2/{key}',
         blockExplorer: 'https://api.etherscan.io/api',
         blockExplorerName: 'Etherscan',
         chainId: 1
@@ -28,59 +27,33 @@ const DEFAULT_NETWORKS = {
 const EXTENDED_NETWORKS = {
     polygon: {
         name: 'Polygon Mainnet',
-        rpcFormat: 'https://polygon-mainnet.g.alchemy.com/v2/{key}',
         blockExplorer: 'https://api.polygonscan.com/api',
         blockExplorerName: 'Polygonscan',
         chainId: 137
     },
     arbitrum: {
         name: 'Arbitrum One',
-        rpcFormat: 'https://arb-mainnet.g.alchemy.com/v2/{key}',
         blockExplorer: 'https://api.arbiscan.io/api',
         blockExplorerName: 'Arbiscan',
         chainId: 42161
     },
     optimism: {
         name: 'Optimism',
-        rpcFormat: 'https://opt-mainnet.g.alchemy.com/v2/{key}',
         blockExplorer: 'https://api-optimistic.etherscan.io/api',
         blockExplorerName: 'Optimism Etherscan',
         chainId: 10
     },
     bsc: {
         name: 'BNB Smart Chain',
-        rpcFormat: 'https://bsc-dataseed.binance.org',
         blockExplorer: 'https://api.bscscan.com/api',
         blockExplorerName: 'BscScan',
         chainId: 56
     },
-    avalanche: {
-        name: 'Avalanche C-Chain',
-        rpcFormat: 'https://api.avax.network/ext/bc/C/rpc',
-        blockExplorer: 'https://api.snowtrace.io/api',
-        blockExplorerName: 'Snowtrace',
-        chainId: 43114
-    },
-    fantom: {
-        name: 'Fantom Opera',
-        rpcFormat: 'https://rpc.ftm.tools',
-        blockExplorer: 'https://api.ftmscan.com/api',
-        blockExplorerName: 'FTMScan',
-        chainId: 250
-    },
     base: {
         name: 'Base',
-        rpcFormat: 'https://mainnet.base.org',
         blockExplorer: 'https://api.basescan.org/api',
         blockExplorerName: 'BaseScan',
         chainId: 8453
-    },
-    zksync: {
-        name: 'zkSync Era',
-        rpcFormat: 'https://mainnet.era.zksync.io',
-        blockExplorer: 'https://block-explorer-api.mainnet.zksync.io/api',
-        blockExplorerName: 'zkSync Explorer',
-        chainId: 324
     }
 };
 
@@ -154,52 +127,44 @@ async function getNetworks() {
 /**
  * Add a new network configuration
  * 
- * @param {string} id - Network identifier (e.g., 'ethereum', 'polygon')
- * @param {Object} networkConfig - Network configuration object
- * @returns {Promise<boolean>} Success status
+ * @param {string} id - Network identifier
+ * @param {Object} networkConfig - Network configuration
+ * @param {string} networkConfig.name - Network name
+ * @param {string} networkConfig.blockExplorer - Block explorer API URL
+ * @param {string} networkConfig.blockExplorerName - Block explorer name
+ * @param {number} [networkConfig.chainId=0] - Chain ID (optional)
+ * @returns {Promise<boolean>} Success flag
  */
 async function addNetwork(id, networkConfig) {
-    if (!id || typeof id !== 'string' || id.trim() === '') {
-        throw new Error('Invalid network ID');
+    if (!id || typeof id !== 'string') {
+        throw new Error('Network ID is required');
     }
     
     // Validate required fields
-    const requiredFields = ['name', 'rpcFormat', 'blockExplorer', 'blockExplorerName'];
+    const requiredFields = ['name', 'blockExplorer', 'blockExplorerName'];
     for (const field of requiredFields) {
         if (!networkConfig[field]) {
-            throw new Error(`Missing required field: ${field}`);
+            throw new Error(`Network configuration must include ${field}`);
         }
     }
     
-    // Load existing networks
+    // Get existing networks
     const networks = await getNetworks();
     
-    // Check if trying to modify ethereum
-    if (id.toLowerCase() === 'ethereum' && networks.ethereum) {
-        throw new Error('Cannot modify the default Ethereum network. Edit your ~/.contract-analyzer/networks.json file directly if needed.');
-    }
-    
-    // Check if the network is in the extended networks list
-    if (EXTENDED_NETWORKS[id.toLowerCase()]) {
-        console.log(`Adding built-in configuration for ${id}`);
-        networks[id.toLowerCase()] = EXTENDED_NETWORKS[id.toLowerCase()];
-    } else {
-        // Add custom network
-        networks[id.toLowerCase()] = {
-            name: networkConfig.name,
-            rpcFormat: networkConfig.rpcFormat,
-            blockExplorer: networkConfig.blockExplorer,
-            blockExplorerName: networkConfig.blockExplorerName,
-            chainId: networkConfig.chainId || 0
-        };
-    }
+    // Add the new network
+    networks[id.toLowerCase()] = {
+        name: networkConfig.name,
+        blockExplorer: networkConfig.blockExplorer,
+        blockExplorerName: networkConfig.blockExplorerName,
+        chainId: networkConfig.chainId || 0
+    };
     
     // Save the updated configuration
     await fs.writeFile(
         NETWORKS_FILE, 
         JSON.stringify({ 
-            networks, 
-            lastUpdated: new Date().toISOString() 
+            networks,
+            lastUpdated: new Date().toISOString()
         }, null, 2)
     );
     

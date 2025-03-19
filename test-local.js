@@ -2,7 +2,7 @@
 
 import { getDeploymentBlock } from './startBlock.js';
 import * as dotenv from 'dotenv';
-import { getNetwork } from './networks.js';
+import { getChain } from './chains.js';
 
 // Load environment variables
 dotenv.config();
@@ -11,11 +11,11 @@ const runTest = async () => {
   // Get chain from env or default to ethereum
   const selectedChain = process.env.SELECTED_CHAIN || 'ethereum';
   
-  // Get network configuration
-  const network = await getNetwork(selectedChain);
+  // Get chain configuration
+  const network = await getChain(selectedChain);
   if (!network) {
-    console.error(`Error: Network configuration not found for '${selectedChain}'`);
-    console.error(`Run 'contract-analyzer networks list' to see available networks.`);
+    console.error(`Error: Chain configuration not found for '${selectedChain}'`);
+    console.error(`Run 'cana chains list' to see available chains.`);
     process.exit(1);
   }
   
@@ -36,7 +36,7 @@ const runTest = async () => {
   }
 
   console.log(`Testing with contract: ${contractAddress}`);
-  console.log(`Network: ${network.name}`);
+  console.log(`Chain: ${network.name}`);
   console.log(`Using RPC URL: ${rpcUrl}`);
   console.log(`Using block explorer: ${blockExplorerUrl}`);
   console.log('Starting contract analysis...');
@@ -69,7 +69,8 @@ const runTest = async () => {
         });
       }
 
-      console.log('\nResults have been saved to the contract-info directory.');
+      const outputDir = result.outputDir || 'contract-info';
+      console.log(`\nResults have been saved to the ${outputDir} directory.`);
     })
     .catch(error => {
       console.error('Error:', error.message);
