@@ -19,51 +19,72 @@ A powerful command-line tool for analyzing smart contracts on Ethereum and other
   
 - 📁 **Organized Output**
   - All analyzed contracts stored in `contracts-analyzed/` directory
-  - Clear folder structure with date-based organization
-  - Individual contract files separated for clarity
-  - Event information with examples
+  - Clear folder structure with contract name and chain
+  - Individual contract files separated in contract/ directory
+  - Event information with formatted examples
 
 ## Installation
 
 ```bash
-npm install -g cana
+# Local installation
+npm install
+
+# Global installation (from source)
+npm link
+
+# Global installation (when published)
+npm install -g contract-analyzer
 ```
 
 ## Quick Start
 
-1. Analyze a contract (two equivalent formats):
+1. Chain Setup
+```bash
+cana setup
+```
+Add in Blockscanner API key and API URL endpoint into setup. The chain added will now be the `default` chain for all subsequent contract analysis. 
+
+2. Analyze a contract.
 ```bash
 cana analyze 0xYourContractAddress
 # or
 cana -a 0xYourContractAddress
 ```
 
-2. Add a new chain:
+2. Add another chain:
 ```bash
-cana chains --add
+cana setup
 ```
 
-3. Switch default chain:
+3. List all added chains:
 ```bash
-cana chains --switch optimism
+cana chains
 ```
+
+4. Switch default chain:
+```bash
+cana chains --switch `chain name` 
+```
+
+Now that the default chain is switched, all subsequent analysis will be on this new default chain.
+
 
 ## Directory Structure
 
-When analyzing a contract, Cana creates the following structure:
+When analyzing a contract, Cana creates the following structure wherever you run the CLI:
 ```
 contracts-analyzed/
 └── ContractName_chainName_YYYY-MM-DD/
-    ├── abi.json              # Contract ABI
-    ├── contract/            # Individual contract source files
-    └── event-information.json # Event signatures and examples
+  ├── contract/            # Folder for individual contract files
+  ├── abi.json              # Contract ABI
+  └── event-information.json # Event signatures and examples
 ```
 
 ## Commands
 
 ### Contract Analysis
 ```bash
-# Basic analysis (two equivalent formats)
+# Basic analysis
 cana analyze <address>
 cana -a <address>
 
@@ -71,51 +92,18 @@ cana -a <address>
 cana analyze <address> -c <chain>
 cana -a <address> -c <chain>
 
-# Analysis with custom block range
-cana analyze <address> -b <block-range>
-cana -a <address> -b <block-range>
-
-# Force API key prompt
-cana analyze <address> -d
-cana -a <address> -d
-
 # Summary view
 cana analyze <address> -s
 cana -a <address> -s
 ```
 
-### Chain Management
-```bash
-# List available chains
-cana chains
-
-# Detailed chain information
-cana chains list
-
-# Add new chain
-cana chains add
-
-# Remove chain
-cana chains remove <chain-id>
-
-# Switch default chain
-cana chains --switch <chain-id>
-```
-
-### Configuration
-```bash
-# Chain setup
-cana setup
-```
-
 ## Chain Configuration
 
-Each chain requires:
-- Chain identifier (e.g., ethereum, optimism)
-- Network name
-- Block explorer API URL
-- Block explorer API key
-- Chain ID (optional)
+Chain configurations are stored in `~/.contract-analyzer/config.json`. This file contains:
+
+- List of configured chains and their details
+- Default chain selection
+- API keys for block explorers
 
 ## API Keys
 
@@ -123,30 +111,10 @@ Each chain requires:
 - Each chain can have its own explorer API key
 - Keys can be updated using the `-d` flag during analysis
 
-## Development
-
 ### Prerequisites
 
-- Node.js v14 or higher
+- Node.js v16 or higher
 - npm v6 or higher
-
-### Local Development
-```bash
-git clone <repository-url>
-cd cana
-npm install
-npm link
-```
-
-## Error Handling
-
-The CLI handles various error cases:
-- Invalid API keys
-- Network connectivity issues
-- Rate limiting
-- Block range limits
-- Invalid URLs
-- Missing configurations
 
 ## Contributing
 
