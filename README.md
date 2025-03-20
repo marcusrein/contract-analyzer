@@ -26,13 +26,7 @@ A powerful command-line tool for analyzing smart contracts on Ethereum and other
 ## Installation
 
 ```bash
-# Local installation
-npm install
-
-# Global installation (from source)
-npm link
-
-# Global installation (when published)
+# Install globally from npm
 npm install -g contract-analyzer
 ```
 
@@ -103,12 +97,6 @@ Chain configurations are stored in `~/.contract-analyzer/config.json`. This file
 - List of configured chains and their details
 - Default chain selection
 - API keys for block explorers
-
-## API Keys
-
-- API keys are stored securely in your global configuration
-- Each chain can have its own explorer API key
-- Keys can be updated using the `-d` flag during analysis
 
 ### Prerequisites
 
