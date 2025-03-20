@@ -57,12 +57,12 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/yourusername/contract-analyzer.git"
+		"url": "git+https://github.com/marcusrein/contract-analyzer.git"
 	},
 	"bugs": {
-		"url": "https://github.com/yourusername/contract-analyzer/issues"
+		"url": "https://github.com/marcusrein/contract-analyzer/issues"
 	},
-	"homepage": "https://github.com/yourusername/contract-analyzer#readme",
+	"homepage": "https://github.com/marcusrein/contract-analyzer#readme",
 	"lint-staged": {
 		"*.{js,jsx,ts,tsx}": [
 			"eslint --fix",
