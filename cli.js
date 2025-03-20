@@ -23,7 +23,29 @@ import { existsSync } from 'fs';
 // Load environment variables
 config();
 
+// Get the version from package.json
+let version = '1.0.4'; // Fallback version
+try {
+  const pkgPath = path.join(__dirname, '../package.json');
+  if (existsSync(pkgPath)) {
+    const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'));
+    version = pkg.version;
+  } else {
+    const localPkgPath = path.join(__dirname, './package.json');
+    if (existsSync(localPkgPath)) {
+      const localPkg = JSON.parse(await fs.readFile(localPkgPath, 'utf8'));
+      version = localPkg.version;
+    }
+  }
+} catch (error) {
+  console.log('Warning: Could not read version from package.json:', error.message);
+}
+
 const program = new Command();
+
+// Debug information
+console.log('CLI location:', __filename);
+console.log('Current directory:', process.cwd());
 
 // Function to prompt for input
 const prompt = (query) => new Promise((resolve) => {
@@ -91,7 +113,7 @@ async function loadApiKeys() {
 program
     .name('cana')
     .description('Analyze smart contracts on Ethereum and other EVM-compatible blockchains.\n\nRun "cana setup" to set up new chains.')
-    .version('1.0.0')
+    .version(version)
     .option('-a, --address <address>', 'Shorthand to analyze the provided contract address')
     .action(async (options) => {
         // If the address option is used at the root level, forward to analyze command
