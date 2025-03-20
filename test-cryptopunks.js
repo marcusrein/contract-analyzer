@@ -91,11 +91,104 @@ async function analyzeContractManually(address, deploymentBlock) {
     
     // Save source code
     if (contractInfo.sourceCode) {
+      let sourceCode = contractInfo.sourceCode;
+      let extractedFiles = [];
+      
+      // Check if the source code is in JSON format
+      if (sourceCode.trim().startsWith('{') || sourceCode.trim().startsWith('{{')) {
+        try {
+          // Try to parse it as JSON
+          let parsedSource;
+          
+          // Handle double-brace JSON format
+          if (sourceCode.trim().startsWith('{{')) {
+            // Remove the extra curly brace at the beginning and end
+            sourceCode = sourceCode.trim();
+            sourceCode = sourceCode.substring(1, sourceCode.length - 1);
+          }
+          
+          parsedSource = JSON.parse(sourceCode);
+          
+          // If it's a standard Solidity JSON input format, extract the actual contracts
+          if (parsedSource.sources) {
+            const contractName = contractInfo.contractName;
+            let mainContractSource = null;
+            const combinedSource = [];
+            
+            // First collect all files
+            for (const [filePath, fileInfo] of Object.entries(parsedSource.sources)) {
+              if (fileInfo.content) {
+                // Track main contract
+                if (contractName && filePath.includes(contractName)) {
+                  mainContractSource = fileInfo.content;
+                }
+                
+                // Add file to combined content with clear separation
+                const fileName = filePath.split('/').pop();
+                combinedSource.push(
+                  `\n// ==========================================\n` +
+                  `// FILE: ${fileName}\n` +
+                  `// ==========================================\n\n` +
+                  `${fileInfo.content}`
+                );
+                
+                // Track extracted files
+                extractedFiles.push({
+                  path: filePath,
+                  fileName: fileName,
+                  content: fileInfo.content
+                });
+              }
+            }
+            
+            // Combine all sources into one file, putting main contract first if found
+            if (mainContractSource) {
+              // Put main contract at the top
+              sourceCode = 
+                `// MAIN CONTRACT: ${contractName}\n` +
+                `// ==========================================\n\n` +
+                `${mainContractSource}\n\n` +
+                `// ==========================================\n` +
+                `// RELATED CONTRACT FILES\n` +
+                `// ==========================================\n` +
+                combinedSource.filter(content => content.indexOf(mainContractSource) === -1).join('\n');
+            } else {
+              // No main contract identified, just combine all
+              sourceCode = 
+                `// COMBINED SOLIDITY FILES\n` +
+                `// ==========================================\n` +
+                combinedSource.join('\n');
+            }
+            
+            // Log info about the combined files
+            console.log(`💡 Combined ${extractedFiles.length} Solidity files into contract.sol`);
+          }
+        } catch (e) {
+          // If parsing fails, keep the original source code
+          console.warn(`Note: Could not parse source code as JSON: ${e.message}`);
+        }
+      }
+      
+      // Write the combined or original source code
       await fs.writeFile(
         path.join(outputDir, 'contract.sol'),
-        contractInfo.sourceCode
+        sourceCode
       );
       console.log(`💾 Source code saved to ${folderName}/contract.sol`);
+      
+      // If we extracted and combined multiple files, create a manifest file with the list
+      if (extractedFiles.length > 1) {
+        const manifest = {
+          contractName: contractInfo.contractName || 'Unknown',
+          combinedFiles: extractedFiles.map(f => f.fileName)
+        };
+        
+        await fs.writeFile(
+          path.join(outputDir, 'source_manifest.json'),
+          JSON.stringify(manifest, null, 2)
+        );
+        console.log(`📋 File manifest saved to ${folderName}/source_manifest.json`);
+      }
     }
     
     // Save events

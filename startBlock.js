@@ -323,11 +323,109 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 	
 	// Save source code to file if available
 	if (contractInfo?.sourceCode) {
+		let sourceCode = contractInfo.sourceCode;
+		
+		// Create a contract folder inside the output directory
+		const contractDir = path.join(outputDir, 'contract');
+		try {
+			await fs.mkdir(contractDir, { recursive: true });
+		} catch (err) {
+			console.warn(`Note: Could not create contract directory: ${err.message}`);
+		}
+		
+		// Check if the source code is in JSON format
+		if (sourceCode.trim().startsWith('{') || sourceCode.trim().startsWith('{{')) {
+			try {
+				// Try to parse it as JSON
+				let parsedSource;
+				
+				// Handle double-brace JSON format
+				if (sourceCode.trim().startsWith('{{')) {
+					// Remove the extra curly brace at the beginning and end
+					sourceCode = sourceCode.trim();
+					sourceCode = sourceCode.substring(1, sourceCode.length - 1);
+				}
+				
+				parsedSource = JSON.parse(sourceCode);
+				
+				// If it's a standard Solidity JSON input format, extract the actual contracts
+				if (parsedSource.sources) {
+					const contractName = contractInfo.contractName;
+					let mainContractFile = null;
+					let extractedFiles = 0;
+					
+					// Save each contract file separately
+					for (const [filePath, fileInfo] of Object.entries(parsedSource.sources)) {
+						if (fileInfo.content) {
+							const fileName = filePath.split('/').pop();
+							const fileSavePath = path.join(contractDir, fileName);
+							
+							await fs.writeFile(fileSavePath, fileInfo.content);
+							extractedFiles++;
+							
+							// Track the main contract file for reference
+							if (contractName && filePath.includes(contractName)) {
+								mainContractFile = fileName;
+							}
+							
+							console.log(`💾 Source file saved to ${folderName}/contract/${fileName}`);
+						}
+					}
+					
+					// Create a manifest file to help identify the main contract
+					if (extractedFiles > 0) {
+						const manifest = {
+							contractName: contractInfo.contractName || 'Unknown',
+							mainContractFile: mainContractFile,
+							extractedFiles: extractedFiles,
+							timestamp: new Date().toISOString()
+						};
+						
+						await fs.writeFile(
+							path.join(contractDir, 'manifest.json'),
+							JSON.stringify(manifest, null, 2)
+						);
+						
+						console.log(`📋 Contract manifest saved to ${folderName}/contract/manifest.json`);
+					}
+					
+					// Also save a copy of the original source code in the contract directory
+					await fs.writeFile(
+						path.join(contractDir, 'original_source.json'),
+						sourceCode
+					);
+				} else {
+					// If not in the standard format but still JSON, save the original
+					await fs.writeFile(
+						path.join(contractDir, 'contract.sol'),
+						sourceCode
+					);
+					console.log(`💾 Source code saved to ${folderName}/contract/contract.sol`);
+				}
+			} catch (e) {
+				// If parsing fails, save the original source code
+				console.warn(`Note: Could not parse source code as JSON: ${e.message}`);
+				await fs.writeFile(
+					path.join(contractDir, 'contract.sol'),
+					sourceCode
+				);
+				console.log(`💾 Source code saved to ${folderName}/contract/contract.sol`);
+			}
+		} else {
+			// Not in JSON format, save as-is
+			await fs.writeFile(
+				path.join(contractDir, 'contract.sol'),
+				sourceCode
+			);
+			console.log(`💾 Source code saved to ${folderName}/contract/contract.sol`);
+		}
+		
+		// Also save a backup copy in the original location for backward compatibility
 		await fs.writeFile(
 			path.join(outputDir, 'contract.sol'),
-			contractInfo.sourceCode
+			sourceCode
 		);
-		console.log(`💾 Source code saved to ${folderName}/contract.sol`);
+		console.log(`💾 Source code backup saved to ${folderName}/contract.sol`);
 	}
 	
 	// Save events to file - limiting to 3 examples per event type
