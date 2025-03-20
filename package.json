@@ -36,7 +36,7 @@
 		"evm",
 		"web3"
 	],
-	"author": "Your Name",
+	"author": "Marcus Rein",
 	"license": "MIT",
 	"dependencies": {
 		"chalk": "^5.4.1",
