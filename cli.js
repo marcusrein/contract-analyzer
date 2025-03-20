@@ -6,6 +6,7 @@ import { getDeploymentBlock } from './startBlock.js';
 import readline from 'readline';
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import os from 'os';
 import { 
     getChains, 
@@ -19,6 +20,10 @@ import {
 } from './chains.js';
 import { setup } from './setup.js';
 import { existsSync } from 'fs';
+
+// Get ES Module compatibility for __dirname and __filename
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 config();
