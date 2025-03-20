@@ -391,41 +391,35 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 					
 					// Also save a copy of the original source code in the contract directory
 					await fs.writeFile(
-						path.join(contractDir, 'original_source.json'),
+						path.join(contractDir, 'original_source.txt'),
 						sourceCode
 					);
+					console.log(`💾 Source code saved to ${folderName}/contract/original_source.txt`);
 				} else {
 					// If not in the standard format but still JSON, save the original
 					await fs.writeFile(
-						path.join(contractDir, 'contract.sol'),
+						path.join(contractDir, 'contract_source.sol'),
 						sourceCode
 					);
-					console.log(`💾 Source code saved to ${folderName}/contract/contract.sol`);
+					console.log(`💾 Source code saved to ${folderName}/contract/contract_source.sol`);
 				}
 			} catch (e) {
 				// If parsing fails, save the original source code
 				console.warn(`Note: Could not parse source code as JSON: ${e.message}`);
 				await fs.writeFile(
-					path.join(contractDir, 'contract.sol'),
+					path.join(contractDir, 'original_source.txt'),
 					sourceCode
 				);
-				console.log(`💾 Source code saved to ${folderName}/contract/contract.sol`);
+				console.log(`💾 Source code saved to ${folderName}/contract/original_source.txt`);
 			}
 		} else {
 			// Not in JSON format, save as-is
 			await fs.writeFile(
-				path.join(contractDir, 'contract.sol'),
+				path.join(contractDir, 'contract_source.sol'),
 				sourceCode
 			);
-			console.log(`💾 Source code saved to ${folderName}/contract/contract.sol`);
+			console.log(`💾 Source code saved to ${folderName}/contract/contract_source.sol`);
 		}
-		
-		// Also save a backup copy in the original location for backward compatibility
-		await fs.writeFile(
-			path.join(outputDir, 'contract.sol'),
-			sourceCode
-		);
-		console.log(`💾 Source code backup saved to ${folderName}/contract.sol`);
 	}
 	
 	// Save events to file - limiting to 3 examples per event type

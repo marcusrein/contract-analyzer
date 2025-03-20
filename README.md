@@ -124,7 +124,7 @@ USDC_ethereum_2023-06-15/
 
 The folder contains:
 - `abi.json` - The contract's ABI (if available)
-- `contract.sol` - The contract's source code (if verified)
+- `contract/` - Directory containing individual contract source files (if verified)
 - `event-information.json` - Event signatures and examples
 
 This ensures analyses of the same contract on different dates or chains don't overwrite each other.

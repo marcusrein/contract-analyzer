@@ -657,7 +657,7 @@ program
             
             const filesTable = [
                 { file: `${outputDir}/abi.json`, description: 'Contract ABI' },
-                { file: `${outputDir}/contract.sol`, description: 'Contract Source Code' },
+                { file: `${outputDir}/contract/`, description: 'Individual Contract Source Files' },
                 { file: `${outputDir}/event-information.json`, description: 'Contract Event Signatures and Examples (3 per type)' }
             ];
             
