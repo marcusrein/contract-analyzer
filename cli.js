@@ -653,7 +653,7 @@ program
             console.log(chalk.default.bold.blue('💾 SAVED FILES'));
             console.log('───────────────────');
             
-            const outputDir = result.outputDir || 'contract-info';
+            const outputDir = path.join('contracts-analyzed', result.outputDir || 'contract-info');
             
             const filesTable = [
                 { file: `${outputDir}/abi.json`, description: 'Contract ABI' },

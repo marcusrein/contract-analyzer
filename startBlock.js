@@ -306,14 +306,21 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 	
 	// Create folder name
 	const folderName = `${sanitizedContractName}_${sanitizedChainName}_${dateString}`;
-	const outputDir = path.join(process.cwd(), folderName);
 	
-	// Create the directory
+	// Create base directory for all analyzed contracts
+	const baseDir = path.join(process.cwd(), 'contracts-analyzed');
+	await fs.mkdir(baseDir, { recursive: true });
+	
+	// Create directory for this specific contract analysis
+	const outputDir = path.join(baseDir, folderName);
 	await fs.mkdir(outputDir, { recursive: true });
-	console.log(`📁 Created analysis folder: ${folderName}`);
 	
-	// Save ABI to file if available
-	if (contractInfo?.abi) {
+	// Create contract directory
+	const contractDir = path.join(outputDir, 'contract');
+	await fs.mkdir(contractDir, { recursive: true });
+	
+	// Save ABI to file
+	if (contractInfo.abi) {
 		await fs.writeFile(
 			path.join(outputDir, 'abi.json'),
 			JSON.stringify(contractInfo.abi, null, 2)
@@ -324,14 +331,6 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 	// Save source code to file if available
 	if (contractInfo?.sourceCode) {
 		let sourceCode = contractInfo.sourceCode;
-		
-		// Create a contract folder inside the output directory
-		const contractDir = path.join(outputDir, 'contract');
-		try {
-			await fs.mkdir(contractDir, { recursive: true });
-		} catch (err) {
-			console.warn(`Note: Could not create contract directory: ${err.message}`);
-		}
 		
 		// Check if the source code is in JSON format
 		if (sourceCode.trim().startsWith('{') || sourceCode.trim().startsWith('{{')) {
