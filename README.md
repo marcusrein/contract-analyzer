@@ -51,23 +51,22 @@ cana analyze 0xYourContractAddress
 cana -a 0xYourContractAddress
 ```
 
-2. Add another chain:
+3. Add another chain:
 ```bash
 cana setup
 ```
 
-3. List all added chains:
+4. List all added chains:
 ```bash
 cana chains
 ```
 
-4. Switch default chain:
+5. Switch default chain:
 ```bash
 cana chains --switch `chain name` 
 ```
 
 Now that the default chain is switched, all subsequent analysis will be on this new default chain.
-
 
 ## Directory Structure
 
