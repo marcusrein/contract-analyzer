@@ -57,7 +57,9 @@ cana chains
 
 5. Switch default chain:
 ```bash
-cana chains --switch `chain name` 
+cana chains --switch <chain-name> 
+# or use the shorthand
+cana chains -s <chain-name>
 ```
 
 Now that the default chain is switched, all subsequent analysis will be on this new default chain.

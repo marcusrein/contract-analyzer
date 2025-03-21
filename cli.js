@@ -206,7 +206,7 @@ chainsCommand
             
             console.log('\nUse with: cana -a <address> -c <chain>');
             console.log('For more details: cana chains list');
-            console.log('To switch selected chain: cana chains --switch <chain>');
+            console.log('To switch selected chain: cana chains -s <chain>');
             
             // Allow adding a new chain immediately
             if (options.add) {
@@ -264,7 +264,7 @@ chainsCommand
                 console.log('   cana setup');
                 
                 console.log('\n🔍 To switch chains:');
-                console.log('   cana chains --switch <chain>');
+                console.log('   cana chains -s <chain>');
                 
                 console.log('\n🔍 For a list of all chains use:');
                 console.log('   cana chains list');
@@ -277,7 +277,7 @@ chainsCommand
             process.exit(1);
         }
     })
-    .option('--switch <chain>', 'Switch the selected chain');
+    .option('-s, --switch <chain>', 'Switch the selected chain');
 
 // Detailed list command for chains
 chainsCommand
@@ -487,7 +487,7 @@ program
             if (chain !== 'ethereum') {
                 console.log(`\n⚠️  Using chain: ${chain.toUpperCase()}`);
                 console.log('   This is now your selected chain for future commands');
-                console.log('   You can also use: cana chains --switch <chain>');
+                console.log('   You can also use: cana chains -s <chain>');
             }
             
             // Get all available networks

@@ -160,6 +160,8 @@ export async function setup() {
     console.log('   cana chains --add');
     
     console.log('\n🔍 To switch chains:');
+    console.log('   cana chains -s <chain>');
+    console.log('   or');
     console.log('   cana chains --switch <chain>');
     
     console.log('\n🔍 For a list of all chains use:');
