@@ -12,7 +12,7 @@ import os from 'os';
 const CONFIG_DIR = path.join(os.homedir(), '.contract-analyzer');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
-// Default configuration
+// Selected configuration
 const DEFAULT_CONFIG = {
     chains: {
         ethereum: {
@@ -23,7 +23,7 @@ const DEFAULT_CONFIG = {
             apiKey: ''
         }
     },
-    defaultChain: 'ethereum',
+    selectedChain: 'ethereum',
     apiKeys: {},
     preferences: {
         outputFormat: 'json'
@@ -31,7 +31,7 @@ const DEFAULT_CONFIG = {
     lastUpdated: new Date().toISOString()
 };
 
-// Extended chains - these are available but not included by default
+// Extended chains - these are available but not included by selected
 // Users can add these manually with the chains add command
 const EXTENDED_CHAINS = {
     polygon: {
@@ -214,7 +214,7 @@ async function removeChain(id) {
     
     // Cannot remove ethereum
     if (id.toLowerCase() === 'ethereum') {
-        throw new Error('Cannot remove the default Ethereum chain');
+        throw new Error('Cannot remove the selected Ethereum chain');
     }
     
     // Load existing config
@@ -260,12 +260,12 @@ async function getAvailableChains() {
 }
 
 /**
- * Set the default chain
+ * Set the selected chain
  * 
  * @param {string} id - Chain identifier
  * @returns {Promise<boolean>} Success status
  */
-async function setDefaultChain(id) {
+async function setSelectedChain(id) {
     if (!id || typeof id !== 'string') {
         throw new Error('Invalid chain ID');
     }
@@ -277,8 +277,8 @@ async function setDefaultChain(id) {
         throw new Error(`Chain '${id}' not found`);
     }
     
-    // Update default chain
-    config.defaultChain = id.toLowerCase();
+    // Update selected chain
+    config.selectedChain = id.toLowerCase();
     config.lastUpdated = new Date().toISOString();
     
     // Save the updated configuration
@@ -286,13 +286,13 @@ async function setDefaultChain(id) {
 }
 
 /**
- * Get the default chain
+ * Get the selected chain
  * 
- * @returns {Promise<string>} Default chain identifier
+ * @returns {Promise<string>} Selected chain identifier
  */
-async function getDefaultChain() {
+async function getSelectedChain() {
     const config = await loadConfig();
-    return config.defaultChain || 'ethereum';
+    return config.selectedChain || 'ethereum';
 }
 
 /**
@@ -402,8 +402,8 @@ export {
     addChain, 
     removeChain, 
     getAvailableChains,
-    setDefaultChain,
-    getDefaultChain,
+    setSelectedChain,
+    getSelectedChain,
     saveApiKey,
     getApiKey,
     initChainConfig,

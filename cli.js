@@ -13,8 +13,8 @@ import {
     getChain, 
     addChain, 
     removeChain,
-    setDefaultChain,
-    getDefaultChain,
+    setSelectedChain,
+    getSelectedChain,
     saveApiKey,
     getApiKey
 } from './chains.js';
@@ -132,13 +132,13 @@ program
         }
     });
 
-// Function to update the default chain in global config
-async function updateDefaultChain(chain) {
+// Function to update the selected chain in global config
+async function updateSelectedChain(chain) {
     try {
-        // Use the new setDefaultChain function from chains.js
-        return await setDefaultChain(chain);
+        // Use the new setSelectedChain function from chains.js
+        return await setSelectedChain(chain);
     } catch (error) {
-        console.error(`\n⚠️ Could not update default chain: ${error.message}`);
+        console.error(`\n⚠️ Could not update selected chain: ${error.message}`);
         return false;
     }
 }
@@ -161,7 +161,7 @@ chainsCommand
                 if (!networks[chainId]) {
                     console.error(`\n❌ Error: Unsupported chain "${chainId}"`);
                     console.log('\nAvailable chains:');
-                    console.log(`- ethereum (default)`);
+                    console.log(`- ethereum (selected)`);
                     
                     const otherNetworks = Object.keys(networks).filter(id => id !== 'ethereum');
                     if (otherNetworks.length > 0) {
@@ -171,11 +171,11 @@ chainsCommand
                     process.exit(1);
                 }
                 
-                // Update default chain using unified config
-                await setDefaultChain(chainId);
+                // Update selected chain using unified config
+                await setSelectedChain(chainId);
                 
                 // Show success message
-                console.log(`\n✅ Default chain switched to: ${chainId}`);
+                console.log(`\n✅ Selected chain switched to: ${chainId}`);
                 console.log('\nThis will be used for all future commands unless overridden with -c flag');
                 process.exit(0);
             }
@@ -185,28 +185,28 @@ chainsCommand
             console.log('\nAvailable Chains:');
             console.log('----------------');
             
-            // Get current default chain from global config
-            const defaultChain = await getDefaultChain();
+            // Get current selected chain from global config
+            const selectedChain = await getSelectedChain();
             
-            // List all chains, marking the current default
+            // List all chains, marking the current selected
             Object.keys(networks)
                 .sort((a, b) => {
-                    // Sort the chains but put the default chain first
-                    if (a === defaultChain) return -1;
-                    if (b === defaultChain) return 1;
+                    // Sort the chains but put the selected chain first
+                    if (a === selectedChain) return -1;
+                    if (b === selectedChain) return 1;
                     return a.localeCompare(b);
                 })
                 .forEach(id => {
-                    if (id === defaultChain) {
-                        console.log(`${id} (default)`);
+                    if (id === selectedChain) {
+                        console.log(`${id} (selected)`);
                     } else {
                         console.log(id);
                     }
                 });
             
-            console.log('\nUse with: cana analyze -a <address> -c <chain>');
+            console.log('\nUse with: cana -a <address> -c <chain>');
             console.log('For more details: cana chains list');
-            console.log('To switch default chain: cana chains --switch <chain>');
+            console.log('To switch selected chain: cana chains --switch <chain>');
             
             // Allow adding a new chain immediately
             if (options.add) {
@@ -269,7 +269,7 @@ chainsCommand
                 console.log('\n🔍 For a list of all chains use:');
                 console.log('   cana chains list');
             } else {
-                console.log('\nTo add a new chain: cana chains --add');
+                console.log('\nTo add a new chain: cana setup');
             }
             
         } catch (error) {
@@ -278,7 +278,7 @@ chainsCommand
         }
     })
     .option('-a, --add', 'Add a new chain after listing')
-    .option('-s, --switch <chain>', 'Switch the default chain');
+    .option('-s, --switch <chain>', 'Switch the selected chain');
 
 // Detailed list command for chains
 chainsCommand
@@ -291,13 +291,13 @@ chainsCommand
             console.log('\nDetailed Chain Information:');
             console.log('-------------------------');
             
-            // Get current default chain from global config
-            const defaultChain = await getDefaultChain();
+            // Get current selected chain from global config
+            const selectedChain = await getSelectedChain();
             
-            // List default chain first
-            if (networks[defaultChain]) {
-                const config = networks[defaultChain];
-                console.log(`\n${defaultChain} (default):`);
+            // List selected chain first
+            if (networks[selectedChain]) {
+                const config = networks[selectedChain];
+                console.log(`\n${selectedChain} (selected):`);
                 console.log(`  Name: ${config.name}`);
                 console.log(`  Chain ID: ${config.chainId || 'N/A'}`);
                 console.log(`  Block Explorer: ${config.blockExplorerName} (${config.blockExplorer})`);
@@ -307,7 +307,7 @@ chainsCommand
             if (Object.keys(networks).length > 1) {
                 console.log('\nAdditional Chains:');
                 Object.entries(networks).forEach(([id, config]) => {
-                    if (id !== defaultChain) {
+                    if (id !== selectedChain) {
                         console.log(`\n${id}:`);
                         console.log(`  Name: ${config.name}`);
                         console.log(`  Chain ID: ${config.chainId || 'N/A'}`);
@@ -424,7 +424,7 @@ chainsCommand
         try {
             // Validate chain ID
             if (id.toLowerCase() === 'ethereum') {
-                console.error('\n❌ Error: Cannot remove the default Ethereum network.');
+                console.error('\n❌ Error: Cannot remove the selected Ethereum network.');
                 console.log('To modify Ethereum settings, edit your ~/.contract-analyzer/chains.json file directly.');
                 process.exit(1);
             }
@@ -467,28 +467,28 @@ chainsCommand
 program
     .command('analyze <address>')
     .description('Analyze a smart contract')
-    .option('-c, --chain <chain>', 'Blockchain network to use (default from global config or ethereum)', null)
+    .option('-c, --chain <chain>', 'Blockchain network to use (selected from global config or ethereum)', null)
     .option('-k, --key <key>', 'Block explorer API key')
     .option('-b, --block-range <number>', 'Block range size for scanning (reduce to 500 if you encounter range limit errors)', '1000')
     .option('-d, --dev', 'Development mode - forces prompt for API keys', false)
     .option('-s, --summary', 'Show only summary information (less detailed output)', false)
     .action(async (address, options) => {
         try {
-            // Get current default chain
-            const currentDefaultChain = await getDefaultChain();
+            // Get current selected chain
+            const currentSelectedChain = await getSelectedChain();
             
-            // Determine which chain to use (command line arg or default)
-            const chain = (options.chain || currentDefaultChain).toLowerCase();
+            // Determine which chain to use (command line arg or selected)
+            const chain = (options.chain || currentSelectedChain).toLowerCase();
             
-            // If chain is not the current default, update the default
-            if (chain !== currentDefaultChain) {
-                await updateDefaultChain(chain);
+            // If chain is not the current selected, update the selected
+            if (chain !== currentSelectedChain) {
+                await updateSelectedChain(chain);
             }
 
-            // If chain is not ethereum, remind user they're using a non-default chain
+            // If chain is not ethereum, remind user they're using a non-selected chain
             if (chain !== 'ethereum') {
                 console.log(`\n⚠️  Using chain: ${chain.toUpperCase()}`);
-                console.log('   This is now your default chain for future commands');
+                console.log('   This is now your selected chain for future commands');
                 console.log('   You can also use: cana chains --switch <chain>');
             }
             
@@ -499,7 +499,7 @@ program
             if (!networks[chain]) {
                 console.error(`\n❌ Error: Unsupported chain "${chain}"`);
                 console.log('\nAvailable chains:');
-                console.log(`- ethereum (default)`);
+                console.log(`- ethereum (selected)`);
                 
                 const otherNetworks = Object.keys(networks).filter(id => id !== 'ethereum');
                 if (otherNetworks.length > 0) {
