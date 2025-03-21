@@ -648,22 +648,23 @@ program
             
             const contractInfoTable = [
                 { property: 'Address', value: chalk.default.yellow(address) },
-                { property: 'Name', value: result.contractInfo?.contractName || 'Unknown' },
+                { property: 'Name', value: result.contractInfo?.contractName || (result.contractInfo?.isVerified === false ? '(Contract not verified)' : 'Unknown') },
                 { property: 'Network', value: chainConfig.name },
-                { property: 'Deployment Block', value: result.deploymentBlock },
-                { property: 'Verified', value: result.contractInfo?.isVerified ? chalk.default.green('Yes') : chalk.default.red('No') },
-                { property: 'Proxy', value: result.contractInfo?.proxy ? chalk.default.yellow('Yes') : 'No' }
+                { property: 'Deployment Block', value: result.deploymentBlock || 'Unknown' },
+                { property: 'Verified', value: result.contractInfo?.isVerified ? chalk.default.green('Yes') : chalk.default.yellow('No') },
+                { property: 'Proxy', value: result.contractInfo?.proxy ? chalk.default.yellow('Yes') : (result.contractInfo?.isVerified === false ? '(Verification required)' : 'No') }
             ];
             
             if (result.contractInfo?.proxy && result.contractInfo.implementation) {
                 contractInfoTable.push({ property: 'Implementation', value: result.contractInfo.implementation });
             }
             
-            // Add explorer links if available
-            if (result.contractInfo?.explorerUrl) {
+            // Always add explorer links if possible
+            if (chainConfig.blockExplorer) {
+                const explorerBaseUrl = chainConfig.blockExplorer.replace('/api', '');
                 contractInfoTable.push({ 
                     property: 'Explorer Link', 
-                    value: result.contractInfo.explorerUrl 
+                    value: `${explorerBaseUrl}/address/${address}`
                 });
             }
             
@@ -671,6 +672,11 @@ program
                 contractInfoTable.push({ 
                     property: 'Source Code', 
                     value: result.contractInfo.sourceUrl 
+                });
+            } else if (result.contractInfo?.isVerified === false) {
+                contractInfoTable.push({ 
+                    property: 'Source Code', 
+                    value: '(Contract not verified)' 
                 });
             }
             
@@ -682,35 +688,48 @@ program
             
             const outputDir = path.join('contracts-analyzed', result.outputDir || 'contract-info');
             
-            const filesTable = [
-                { file: `${outputDir}/abi.json`, description: 'Contract ABI' },
-                { file: `${outputDir}/contract/`, description: 'Individual Contract Source Files' },
-                { file: `${outputDir}/event-information.json`, description: 'Contract Event Signatures and Examples (3 per type)' }
-            ];
+            const filesTable = [];
+            
+            if (result.contractInfo?.isVerified) {
+                filesTable.push(
+                    { file: `${outputDir}/abi.json`, description: 'Contract ABI' },
+                    { file: `${outputDir}/contract/`, description: 'Individual Contract Source Files' },
+                    { file: `${outputDir}/event-information.json`, description: 'Contract Event Signatures and Examples (3 per type)' }
+                );
+            } else {
+                filesTable.push(
+                    { file: `${outputDir}/abi.json`, description: 'Placeholder ABI (Contract not verified)' },
+                    { file: `${outputDir}/event-information.json`, description: 'On-chain Event Examples (limited data)' }
+                );
+                
+                // Add additional note about verification
+                console.log(chalk.default.yellow('⚠️ This contract is not verified. Limited data available.'));
+                console.log(chalk.default.yellow('   To access full contract details, verify the contract on the block explorer.'));
+            }
             
             console.log(createTable(filesTable));
             
-            // Event Signatures Section - Simplified
-            if (result.contractInfo?.eventSignatures && result.contractInfo.eventSignatures.length > 0) {
-                console.log(chalk.default.bold.blue('🔔 EVENTS DETECTED'));
+            // Event Signature Section (even if unverified, we might have collected some information)
+            if (result.contractInfo?.eventSignatures?.length > 0 || events?.length > 0) {
+                console.log(chalk.default.bold.blue('📊 EVENT SIGNATURES'));
                 console.log('─────────────────────');
-                console.log(`Found ${result.contractInfo.eventSignatures.length} unique event types`);
                 
-                // Just show the event names in a compact display
-                const eventNames = result.contractInfo.eventSignatures.map(e => e.name);
-                const rows = [];
+                const eventSigTable = [];
                 
-                for (let i = 0; i < eventNames.length; i += 3) {
-                    const row = {
-                        col1: eventNames[i] || '',
-                        col2: eventNames[i + 1] || '',
-                        col3: eventNames[i + 2] || ''
-                    };
-                    rows.push(row);
+                if (result.contractInfo?.eventSignatures?.length > 0) {
+                    result.contractInfo.eventSignatures.forEach(event => {
+                        eventSigTable.push({
+                            name: event.name || 'Unknown',
+                            signature: event.signature || '-',
+                            hash: event.signatureHash || '-'
+                        });
+                    });
+                    
+                    console.log(createTable(eventSigTable, { name: 'Event Name', signature: 'Signature', hash: 'Hash' }));
+                } else {
+                    console.log(chalk.default.yellow('⚠️ No event signatures found or contract not verified.'));
+                    console.log(chalk.default.yellow('   However, on-chain events have been collected to help with analysis.'));
                 }
-                
-                console.log(createTable(rows));
-                console.log(chalk.default.gray(`Saved 3 examples of each event type to ${outputDir}/event-information.json`));
             }
 
             console.log('\n' + chalk.default.bold.green('Analysis finished. All data saved to disk.') + '\n');
@@ -720,13 +739,64 @@ program
         } catch (error) {
             console.error('\n❌ Error:', error.message);
             
-            if (error.message.includes('API_KEY_ERROR')) {
+            if (error.message.includes('Cannot read properties of null (reading \'abi\')')) {
+                // This is a special case for unverified contracts
+                console.log('\n' + chalk.default.bold.green('✅ UNVERIFIED CONTRACT ANALYSIS') + '\n');
+                
+                // Contract Information Section - still show what we can
+                console.log(chalk.default.bold.blue('📄 CONTRACT INFORMATION'));
+                console.log('───────────────────────────────────');
+                
+                const contractInfoTable = [
+                    { property: 'Address', value: chalk.default.yellow(address) },
+                    { property: 'Name', value: '(Contract not verified)' },
+                    { property: 'Network', value: chainConfig.name },
+                    { property: 'Deployment Block', value: result?.deploymentBlock || 'Unknown' },
+                    { property: 'Verified', value: chalk.default.yellow('No') }
+                ];
+                
+                // Always add explorer links
+                if (chainConfig.blockExplorer) {
+                    const explorerBaseUrl = chainConfig.blockExplorer.replace('/api', '');
+                    contractInfoTable.push({ 
+                        property: 'Explorer Link', 
+                        value: `${explorerBaseUrl}/address/${address}`
+                    });
+                }
+                
+                contractInfoTable.push({ 
+                    property: 'Source Code', 
+                    value: '(Contract not verified)' 
+                });
+                
+                console.log(createTable(contractInfoTable));
+                
+                // Files Section - show what we saved
+                console.log(chalk.default.bold.blue('💾 SAVED FILES'));
+                console.log('───────────────────');
+                
+                const outputDir = path.join('contracts-analyzed', address.substring(0, 10));
+                
+                const filesTable = [
+                    { file: `${outputDir}/basic-info.json`, description: 'Basic Contract Information' }
+                ];
+                
+                console.log(createTable(filesTable));
+                
+                // Events Section - placeholder
+                console.log(chalk.default.bold.blue('🔔 EVENTS'));
+                console.log('─────────────────────');
+                console.log('Contract verification required to decode events');
+                
+                console.log('\n' + chalk.default.bold.green('Analysis finished with limited data.') + '\n');
+            }
+            else if (error.message.includes('API_KEY_ERROR')) {
                 console.error("\n📝 API Key Issue Detected:");
                 console.error("  The analysis failed due to an API key problem.");
                 console.error("  Please try running with the -d flag to re-enter your API keys:");
                 console.error(`  cana analyze ${address} -d`);
             } else if (error.message.includes('Failed to parse URL') || error.message.includes('Invalid URL')) {
-                console.error("\n🔗 URL Error Detected:");
+                console.error("\n🌐 URL Error Detected:");
                 console.error("  It appears that the Block Explorer URL you provided may be invalid or");
                 console.error("  you might have used your API key as the URL.");
                 console.error("\n  Please remember:");

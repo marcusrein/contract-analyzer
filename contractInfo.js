@@ -149,7 +149,20 @@ async function getContractInfo(rpcUrl, contractAddress, explorerApiKey, blockExp
         }
         
         if (!data.result || !Array.isArray(data.result) || data.result.length === 0) {
-            return null;
+            console.log('⚠️ Contract data not found or API error. Creating limited information object...');
+            // Return a minimal object instead of null for unverified/unknown contracts
+            return {
+                isVerified: false,
+                abi: null,
+                contractName: 'Unverified Contract',
+                compiler: '',
+                sourceCode: '',
+                proxy: false,
+                implementation: '',
+                eventSignatures: getCommonNFTEventSignatures(contractAddress),
+                explorerUrl: `${blockScannerWebsiteUrl}/address/${contractAddress}`,
+                sourceUrl: null
+            };
         }
         
         const contractData = data.result[0];

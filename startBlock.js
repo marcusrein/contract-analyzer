@@ -193,6 +193,7 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 	
 	if (!contractInfo) {
 		console.log('⚠️ Could not retrieve contract information. The block explorer API may be unavailable or rate limited.');
+		console.log('ℹ️ Continuing analysis with limited data (unverified contract)...');
 	} else {
 		console.log('✅ Contract information retrieved');
 		
@@ -203,6 +204,8 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 		
 		if (contractInfo.sourceUrl && contractInfo.isVerified) {
 			console.log(`🔗 Source Code Link: ${contractInfo.sourceUrl}`);
+		} else {
+			console.log('ℹ️ No source code available (contract not verified)');
 		}
 	}
 	
@@ -320,12 +323,25 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 	await fs.mkdir(contractDir, { recursive: true });
 	
 	// Save ABI to file
-	if (contractInfo.abi) {
+	if (contractInfo?.abi) {
 		await fs.writeFile(
 			path.join(outputDir, 'abi.json'),
 			JSON.stringify(contractInfo.abi, null, 2)
 		);
 		console.log(`💾 ABI saved to ${folderName}/abi.json`);
+	} else {
+		console.log('ℹ️ No ABI available for this contract (not verified)');
+		// Create placeholder ABI for unverified contracts
+		await fs.writeFile(
+			path.join(outputDir, 'abi.json'),
+			JSON.stringify({ 
+				note: "Contract not verified. This is a placeholder ABI.",
+				timestamp: new Date().toISOString(),
+				contract_address: address,
+				placeholder: true
+			}, null, 2)
+		);
+		console.log(`💾 Placeholder ABI information saved to ${folderName}/abi.json`);
 	}
 	
 	// Save source code to file if available
@@ -446,7 +462,8 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 				totalEventsFound: events.length,
 				limitedToExamples: true,
 				examplesPerEventType: 3,
-				uniqueEventTypes: Object.keys(eventsByType).length
+				uniqueEventTypes: Object.keys(eventsByType).length,
+				contract_verified: contractInfo?.isVerified || false
 			},
 			eventSignatures: contractInfo?.eventSignatures || [],
 			"event-examples": limitedEvents
@@ -457,6 +474,24 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 			JSON.stringify(eventsData, null, 2)
 		);
 		console.log(`💾 Events saved to ${folderName}/event-information.json (3 examples per event type)`);
+	} else {
+		// Even if no events were found, create a basic event information file
+		// This ensures that the CLI doesn't error when trying to display event information
+		const emptyEventsData = {
+			metadata: {
+				description: "No events were found for this contract during the analysis period. This could be because the contract is new, inactive, or the block range scanned was insufficient.",
+				totalEventsFound: 0,
+				contract_verified: contractInfo?.isVerified || false
+			},
+			eventSignatures: contractInfo?.eventSignatures || [],
+			"event-examples": []
+		};
+		
+		await fs.writeFile(
+			path.join(outputDir, 'event-information.json'),
+			JSON.stringify(emptyEventsData, null, 2)
+		);
+		console.log(`💾 Empty events file saved to ${folderName}/event-information.json (no events found)`);
 	}
 	
 	return {
