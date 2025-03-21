@@ -86,8 +86,8 @@ cana analyze <address> -c <chain>
 cana -a <address> -c <chain>
 
 # Summary view
-cana analyze <address> -s
-cana -a <address> -s
+cana analyze <address> --summary
+cana -a <address> --summary
 ```
 
 ## Chain Configuration

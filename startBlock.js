@@ -310,6 +310,17 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 	// Create folder name
 	const folderName = `${sanitizedContractName}_${sanitizedChainName}_${dateString}`;
 	
+	// Skip file saving for unverified contracts
+	if (!contractInfo?.isVerified) {
+		console.log('ℹ️ Contract is not verified. Skipping file saving to disk.');
+		return {
+			deploymentBlock,
+			contractInfo,
+			events,
+			outputDir: folderName // Return the folder name for use in the CLI
+		};
+	}
+	
 	// Create base directory for all analyzed contracts
 	const baseDir = path.join(process.cwd(), 'contracts-analyzed');
 	await fs.mkdir(baseDir, { recursive: true });
@@ -331,17 +342,7 @@ async function analyzeContractFromBlockscanner(address, deploymentBlock, apiKey,
 		console.log(`💾 ABI saved to ${folderName}/abi.json`);
 	} else {
 		console.log('ℹ️ No ABI available for this contract (not verified)');
-		// Create placeholder ABI for unverified contracts
-		await fs.writeFile(
-			path.join(outputDir, 'abi.json'),
-			JSON.stringify({ 
-				note: "Contract not verified. This is a placeholder ABI.",
-				timestamp: new Date().toISOString(),
-				contract_address: address,
-				placeholder: true
-			}, null, 2)
-		);
-		console.log(`💾 Placeholder ABI information saved to ${folderName}/abi.json`);
+		// Should never reach here as we now skip unverified contracts
 	}
 	
 	// Save source code to file if available

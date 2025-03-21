@@ -261,7 +261,7 @@ chainsCommand
                 console.log(`\n✅ Setup complete! You can now analyze smart contracts on ${id} with: 'cana -a <contract-address>'`);
                 
                 console.log('\n📘 To add support for other EVM chains:');
-                console.log('   cana chains --add');
+                console.log('   cana setup');
                 
                 console.log('\n🔍 To switch chains:');
                 console.log('   cana chains --switch <chain>');
@@ -277,8 +277,7 @@ chainsCommand
             process.exit(1);
         }
     })
-    .option('-a, --add', 'Add a new chain after listing')
-    .option('-s, --switch <chain>', 'Switch the selected chain');
+    .option('--switch <chain>', 'Switch the selected chain');
 
 // Detailed list command for chains
 chainsCommand
@@ -317,7 +316,7 @@ chainsCommand
             }
             
             console.log('\nTo add a new chain:');
-            console.log('  cana chains --add');
+            console.log('  cana setup');
             
         } catch (error) {
             console.error('\n❌ Error listing chains:', error.message);
@@ -471,7 +470,6 @@ program
     .option('-k, --key <key>', 'Block explorer API key')
     .option('-b, --block-range <number>', 'Block range size for scanning (reduce to 500 if you encounter range limit errors)', '1000')
     .option('-d, --dev', 'Development mode - forces prompt for API keys', false)
-    .option('-s, --summary', 'Show only summary information (less detailed output)', false)
     .action(async (address, options) => {
         try {
             // Get current selected chain
@@ -655,23 +653,41 @@ program
                 { property: 'Proxy', value: result.contractInfo?.proxy ? chalk.default.yellow('Yes') : (result.contractInfo?.isVerified === false ? '(Verification required)' : 'No') }
             ];
             
-            if (result.contractInfo?.proxy && result.contractInfo.implementation) {
-                contractInfoTable.push({ property: 'Implementation', value: result.contractInfo.implementation });
+            // Modified logic to display implementation information for proxies
+            if (result.contractInfo?.proxy) {
+                if (result.contractInfo.implementation && result.contractInfo.implementation !== '') {
+                    contractInfoTable.push({ property: 'Implementation', value: result.contractInfo.implementation });
+                } else {
+                    contractInfoTable.push({ property: 'Implementation', value: chalk.default.yellow('Unknown (proxy detected but implementation not found)') });
+                }
             }
             
-            // Always add explorer links if possible
+            // Add a small separator before links section
+            contractInfoTable.push({ property: '---', value: '---' });
+            
+            // Always add explorer links if possible - make them clickable with terminal formatting
             if (chainConfig.blockExplorer) {
                 const explorerBaseUrl = chainConfig.blockExplorer.replace('/api', '');
+                const explorerLink = `${explorerBaseUrl}/address/${address}`;
                 contractInfoTable.push({ 
                     property: 'Explorer Link', 
-                    value: `${explorerBaseUrl}/address/${address}`
+                    value: chalk.default.blue.underline(explorerLink)
                 });
+                
+                // Add implementation link if this is a proxy contract
+                if (result?.contractInfo?.proxy && result.contractInfo.implementation && result.contractInfo.implementation !== '') {
+                    const implementationLink = `${explorerBaseUrl}/address/${result.contractInfo.implementation}`;
+                    contractInfoTable.push({ 
+                        property: 'Implementation Link', 
+                        value: chalk.default.blue.underline(implementationLink)
+                    });
+                }
             }
             
             if (result.contractInfo?.sourceUrl && result.contractInfo.isVerified) {
                 contractInfoTable.push({ 
                     property: 'Source Code', 
-                    value: result.contractInfo.sourceUrl 
+                    value: chalk.default.blue.underline(result.contractInfo.sourceUrl)
                 });
             } else if (result.contractInfo?.isVerified === false) {
                 contractInfoTable.push({ 
@@ -682,32 +698,36 @@ program
             
             console.log(createTable(contractInfoTable));
             
-            // Files Section
-            console.log(chalk.default.bold.blue('💾 SAVED FILES'));
-            console.log('───────────────────');
+            // Add a small separator after links section
+            console.log('───────────');
+            
+            // Files Section - REMOVING THIS SECTION
+            // console.log(chalk.default.bold.blue('💾 SAVED FILES'));
+            // console.log('───────────────────');
             
             const outputDir = path.join('contracts-analyzed', result.outputDir || 'contract-info');
             
-            const filesTable = [];
+            // const filesTable = [];
             
             if (result.contractInfo?.isVerified) {
-                filesTable.push(
-                    { file: `${outputDir}/abi.json`, description: 'Contract ABI' },
-                    { file: `${outputDir}/contract/`, description: 'Individual Contract Source Files' },
-                    { file: `${outputDir}/event-information.json`, description: 'Contract Event Signatures and Examples (3 per type)' }
-                );
+                // filesTable.push(
+                //     { file: `${outputDir}/abi.json`, description: 'Contract ABI' },
+                //     { file: `${outputDir}/contract/`, description: 'Individual Contract Source Files' },
+                //     { file: `${outputDir}/event-information.json`, description: 'Contract Event Signatures and Examples (3 per type)' }
+                // );
             } else {
-                filesTable.push(
-                    { file: `${outputDir}/abi.json`, description: 'Placeholder ABI (Contract not verified)' },
-                    { file: `${outputDir}/event-information.json`, description: 'On-chain Event Examples (limited data)' }
-                );
+                // filesTable.push(
+                //     { file: `${outputDir}/abi.json`, description: 'Placeholder ABI (Contract not verified)' },
+                //     { file: `${outputDir}/event-information.json`, description: 'On-chain Event Examples (limited data)' }
+                // );
                 
                 // Add additional note about verification
                 console.log(chalk.default.yellow('⚠️ This contract is not verified. Limited data available.'));
                 console.log(chalk.default.yellow('   To access full contract details, verify the contract on the block explorer.'));
+                console.log(chalk.default.yellow('   No data was saved to disk since the contract is unverified.'));
             }
             
-            console.log(createTable(filesTable));
+            // console.log(createTable(filesTable));
             
             // Event Signature Section (even if unverified, we might have collected some information)
             if (result.contractInfo?.eventSignatures?.length > 0 || events?.length > 0) {
@@ -732,9 +752,13 @@ program
                 }
             }
 
-            console.log('\n' + chalk.default.bold.green('Analysis finished. All data saved to disk.') + '\n');
-            console.log(`${chalk.default.gray('Use')} ${chalk.default.bold.blue('cana analyze ' + address + ' -s')} ${chalk.default.gray('for summary view')}`);
-            console.log(`${chalk.default.gray('Use')} ${chalk.default.bold.blue('cana analyze ' + address)} ${chalk.default.gray('for detailed view')}`);
+            if (result.contractInfo?.isVerified) {
+                console.log('\n' + chalk.default.bold.green('Analysis finished. All data saved to disk.') + '\n');
+            } else {
+                console.log('\n' + chalk.default.bold.green('Analysis finished. No data saved to disk for unverified contracts.') + '\n');
+            }
+            
+    
 
         } catch (error) {
             console.error('\n❌ Error:', error.message);
@@ -755,85 +779,110 @@ program
                     { property: 'Verified', value: chalk.default.yellow('No') }
                 ];
                 
+                // Add a small separator before links section
+                contractInfoTable.push({ property: '---', value: '---' });
+                
                 // Always add explorer links
                 if (chainConfig.blockExplorer) {
                     const explorerBaseUrl = chainConfig.blockExplorer.replace('/api', '');
+                    const explorerLink = `${explorerBaseUrl}/address/${address}`;
                     contractInfoTable.push({ 
                         property: 'Explorer Link', 
-                        value: `${explorerBaseUrl}/address/${address}`
+                        value: chalk.default.blue.underline(explorerLink)
+                    });
+                    
+                    // Add implementation link if this is a proxy contract
+                    if (result?.contractInfo?.proxy && result.contractInfo.implementation && result.contractInfo.implementation !== '') {
+                        const implementationLink = `${explorerBaseUrl}/address/${result.contractInfo.implementation}`;
+                        contractInfoTable.push({ 
+                            property: 'Implementation Link', 
+                            value: chalk.default.blue.underline(implementationLink)
+                        });
+                    }
+                }
+                
+                // Add proxy information when available (this section is already handled earlier in the code)
+                if (result?.contractInfo?.proxy) {
+                    contractInfoTable.push({
+                        property: 'Proxy', 
+                        value: chalk.default.yellow('Yes')
+                    });
+                    
+                    if (result.contractInfo.implementation && result.contractInfo.implementation !== '') {
+                        contractInfoTable.push({
+                            property: 'Implementation',
+                            value: result.contractInfo.implementation
+                        });
+                    } else {
+                        contractInfoTable.push({
+                            property: 'Implementation',
+                            value: chalk.default.yellow('Unknown (proxy detected but implementation not found)')
+                        });
+                    }
+                } else {
+                    contractInfoTable.push({
+                        property: 'Proxy', 
+                        value: '(Verification required to determine)'
                     });
                 }
                 
-                contractInfoTable.push({ 
-                    property: 'Source Code', 
-                    value: '(Contract not verified)' 
-                });
-                
                 console.log(createTable(contractInfoTable));
                 
-                // Files Section - show what we saved
-                console.log(chalk.default.bold.blue('💾 SAVED FILES'));
-                console.log('───────────────────');
+                // Add a small separator after links section
+                console.log('───────────');
                 
-                const outputDir = path.join('contracts-analyzed', address.substring(0, 10));
+                // Files Section - REMOVING THIS SECTION
+                // console.log(chalk.default.bold.blue('💾 SAVED FILES'));
+                // console.log('───────────────────');
                 
-                const filesTable = [
-                    { file: `${outputDir}/basic-info.json`, description: 'Basic Contract Information' }
-                ];
+                const outputDir = path.join('contracts-analyzed', result.outputDir || 'contract-info');
                 
-                console.log(createTable(filesTable));
+                // const filesTable = [];
                 
-                // Events Section - placeholder
-                console.log(chalk.default.bold.blue('🔔 EVENTS'));
-                console.log('─────────────────────');
-                console.log('Contract verification required to decode events');
+                // filesTable.push(
+                //     { file: `${outputDir}/abi.json`, description: 'Placeholder ABI (Contract not verified)' },
+                //     { file: `${outputDir}/event-information.json`, description: 'On-chain Event Examples (limited data)' }
+                // );
                 
-                console.log('\n' + chalk.default.bold.green('Analysis finished with limited data.') + '\n');
-            }
-            else if (error.message.includes('API_KEY_ERROR')) {
-                console.error("\n📝 API Key Issue Detected:");
-                console.error("  The analysis failed due to an API key problem.");
-                console.error("  Please try running with the -d flag to re-enter your API keys:");
-                console.error(`  cana analyze ${address} -d`);
-            } else if (error.message.includes('Failed to parse URL') || error.message.includes('Invalid URL')) {
-                console.error("\n🌐 URL Error Detected:");
-                console.error("  It appears that the Block Explorer URL you provided may be invalid or");
-                console.error("  you might have used your API key as the URL.");
-                console.error("\n  Please remember:");
-                console.error("  - The Block Explorer URL should be the API endpoint (e.g., https://api.etherscan.io/api)");
-                console.error("  - Your API key is a separate value that you enter when prompted");
-                console.error("\n  Fix your chain configuration by running:");
-                console.error(`  cana chains remove ${options.chain}`);
-                console.error(`  cana chains --add`);
-            } else if (error.message.includes('NETWORK_ERROR')) {
-                console.error("\n🌐 Network Issue Detected:");
-                console.error("  The analysis failed due to a network connectivity problem.");
-                console.error("  - Check your internet connection");
-                console.error("  - Verify the RPC endpoint is functioning");
-                console.error("  - The service might be experiencing issues or rate limiting");
+                // Add additional note about verification
+                console.log(chalk.default.yellow('⚠️ This contract is not verified. Limited data available.'));
+                console.log(chalk.default.yellow('   To access full contract details, verify the contract on the block explorer.'));
+                console.log(chalk.default.yellow('   No data was saved to disk since the contract is unverified.'));
                 
-                // Add specific advice for range limit errors
-                if (error.message.includes('Range exceeds limit')) {
-                    console.error("\n⚠️ Range Limit Error Detected:");
-                    console.error("  Your RPC provider has a block range limit restriction.");
-                    console.error("  Try reducing the block range with the -b flag:");
-                    console.error(`  cana analyze ${address} -b 500`);
+                // console.log(createTable(filesTable));
+                
+                // Event Signature Section (even if unverified, we might have collected some information)
+                if (result.contractInfo?.eventSignatures?.length > 0 || events?.length > 0) {
+                    console.log(chalk.default.bold.blue('📊 EVENT SIGNATURES'));
+                    console.log('─────────────────────');
+                    
+                    const eventSigTable = [];
+                    
+                    if (result.contractInfo?.eventSignatures?.length > 0) {
+                        result.contractInfo.eventSignatures.forEach(event => {
+                            eventSigTable.push({
+                                name: event.name || 'Unknown',
+                                signature: event.signature || '-',
+                                hash: event.signatureHash || '-'
+                            });
+                        });
+                        
+                        console.log(createTable(eventSigTable, { name: 'Event Name', signature: 'Signature', hash: 'Hash' }));
+                    } else {
+                        console.log(chalk.default.yellow('⚠️ No event signatures found or contract not verified.'));
+                        console.log(chalk.default.yellow('   However, on-chain events have been collected to help with analysis.'));
+                    }
                 }
+
+                if (result.contractInfo?.isVerified) {
+                    console.log('\n' + chalk.default.bold.green('Analysis finished. All data saved to disk.') + '\n');
+                } else {
+                    console.log('\n' + chalk.default.bold.green('Analysis finished. No data saved to disk for unverified contracts.') + '\n');
+                }
+                
+               
             }
         }
     });
 
-// Add setup command
-program
-    .command('setup')
-    .description('Set up the tool with API keys and network configurations')
-    .action(async () => {
-        try {
-            await setup();
-        } catch (error) {
-            console.error('\n❌ Setup failed:', error.message);
-            process.exit(1);
-        }
-    });
-
-program.parse();
+program.parse(process.argv);

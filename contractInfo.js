@@ -186,8 +186,34 @@ async function getContractInfo(rpcUrl, contractAddress, explorerApiKey, blockExp
         if (contractData.Implementation && contractData.Implementation !== '') {
             isProxy = true;
             implementation = contractData.Implementation;
+            console.log(`✅ Proxy contract detected with implementation at ${implementation}`);
         } else if (contractData.SourceCode && contractData.SourceCode.includes('delegatecall')) {
             isProxy = true;
+            console.log(`⚠️ Potential proxy contract detected (delegatecall found in source code)`);
+            
+            // Try to extract implementation address from source code for common patterns
+            if (contractData.SourceCode) {
+                // Look for common implementation storage patterns
+                const implementationPatterns = [
+                    /(?:_?IMPLEMENTATION_?(?:_SLOT)?)\s*=\s*(?:0x[a-fA-F0-9]{64}|keccak256\([^)]+\))/,
+                    /(?:implementation(?:Slot)?)\s*=\s*(?:0x[a-fA-F0-9]{64}|keccak256\([^)]+\))/,
+                    /(?:IMPLEMENTATION_SLOT)\s*=\s*(?:0x[a-fA-F0-9]{64}|bytes32\([^)]+\))/,
+                    /(?:_IMPLEMENTATION_SLOT)\s*=\s*(?:0x[a-fA-F0-9]{64}|bytes32\([^)]+\))/
+                ];
+                
+                for (const pattern of implementationPatterns) {
+                    if (pattern.test(contractData.SourceCode)) {
+                        console.log(`📝 Found implementation storage slot pattern in source code`);
+                        break;
+                    }
+                }
+            }
+        } else if (contractData.SourceCode && 
+                  (contractData.SourceCode.includes('upgradeable') || 
+                   contractData.SourceCode.includes('ERC1967Proxy') || 
+                   contractData.SourceCode.includes('TransparentUpgradeableProxy'))) {
+            isProxy = true;
+            console.log(`⚠️ Upgradeable proxy pattern detected in source code`);
         }
         
         // Extract event signatures from ABI
