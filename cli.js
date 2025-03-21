@@ -200,7 +200,7 @@ chainsCommand
                     }
                 });
             
-            console.log('\nUse with: cana -a <address> -c <chain>');
+            console.log('\n:Analyze a smart contract on your selected chain with cana -a <address> ');
             console.log('For more details: cana chains list');
             console.log('To switch selected chain: cana chains -s <chain>');
             
