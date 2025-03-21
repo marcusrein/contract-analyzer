@@ -61,6 +61,7 @@
 		"url": "https://github.com/marcusrein/contract-analyzer/issues"
 	},
 	"homepage": "https://github.com/marcusrein/contract-analyzer#readme",
+	"changelog": "https://github.com/marcusrein/contract-analyzer/blob/main/CHANGELOG.md",
 	"lint-staged": {
 		"*.{js,jsx,ts,tsx}": [
 			"eslint --fix",
