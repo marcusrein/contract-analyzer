@@ -1,8 +1,9 @@
 # Changelog
 
-## [1.1.1] - 2024-03-22
+## [1.1.1 and 1.1.2] - 2024-03-22
 
 ### Fixed
+- Improved cli cuing for user
 - Removed unnecessary console logs from contract analysis output
 - Cleaned up file output messaging for unverified contracts
 
