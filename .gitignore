@@ -37,3 +37,4 @@ coverage/
 tmp/
 temp/
 contracts-analyzed
+.git

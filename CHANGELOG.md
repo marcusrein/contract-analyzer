@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.1] - 2024-03-22
+
+### Fixed
+- Removed unnecessary console logs from contract analysis output
+- Cleaned up file output messaging for unverified contracts
+
 ## [1.1.0] - 2024-03-22
 
 ### Added
@@ -11,8 +17,6 @@
 - Chain configuration loading issues
 - Minor display formatting in CLI output
 
-### Changed
-- Removed debug information output when running CLI commands
 
 ## [1.0.6] - 2024-03-21
 
