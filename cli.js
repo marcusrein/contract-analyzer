@@ -48,10 +48,6 @@ try {
 
 const program = new Command();
 
-// Debug information
-console.log('CLI location:', __filename);
-console.log('Current directory:', process.cwd());
-
 // Function to prompt for input
 const prompt = (query) => new Promise((resolve) => {
     const rl = readline.createInterface({

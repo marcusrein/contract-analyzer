@@ -11,6 +11,8 @@
 - Chain configuration loading issues
 - Minor display formatting in CLI output
 
+### Changed
+- Removed debug information output when running CLI commands
 
 ## [1.0.6] - 2024-03-21
 
