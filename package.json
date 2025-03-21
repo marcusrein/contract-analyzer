@@ -9,8 +9,6 @@
 	},
 	"scripts": {
 		"start": "node startBlock.js",
-		"test": "node test-local.js",
-		"dev": "node test-local.js",
 		"analyze": "node cli.js analyze",
 		"chains:list": "node cli.js chains list",
 		"chains:add": "node cli.js chains add",
