@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3-1.1.5] - 2024-03-25
+
+### Fixed
+- `cana setup` now runs properly
+### Improved
+- Enhanced setup command to display configuration file location more prominently
+
 ## [1.1.1 and 1.1.2] - 2024-03-22
 
 ### Fixed
