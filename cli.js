@@ -46,6 +46,7 @@ try {
   console.log('Warning: Could not read version from package.json:', error.message);
 }
 
+// Create a single program instance
 const program = new Command();
 
 // Function to prompt for input
@@ -115,16 +116,17 @@ program
     .name('cana')
     .description('Analyze smart contracts on Ethereum and other EVM-compatible blockchains.\n\nRun "cana setup" to set up new chains.')
     .version(version)
-    .option('-a, --address <address>', 'Shorthand to analyze the provided contract address')
-    .action(async (options) => {
-        // If the address option is used at the root level, forward to analyze command
-        if (options.address) {
-            try {
-                // Execute analyze command directly with the provided address
-                await program.parseAsync(['analyze', options.address], { from: 'user' });
-            } catch (error) {
-                console.error('Error executing analyze command:', error.message);
-            }
+    .option('-a, --address <address>', 'Shorthand to analyze the provided contract address');
+
+// Add the setup command
+program
+    .command('setup')
+    .description('Configure chain settings and API keys')
+    .action(async () => {
+        try {
+            await setup();
+        } catch (error) {
+            console.error('Error during setup:', error.message);
         }
     });
 

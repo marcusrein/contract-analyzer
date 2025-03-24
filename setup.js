@@ -71,6 +71,8 @@ export async function setup() {
         await initChainConfig();
         configSpinner.success({ text: 'Chain configuration initialized' });
         
+        console.log('📁 Configuration will be stored in:');
+        console.log('   ~/.contract-analyzer/config.json');
         // Display currently configured chains
         const networks = await getNetworks();
         if (Object.keys(networks).length > 0) {
