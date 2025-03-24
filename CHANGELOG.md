@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.7] - 2024-03-25
+
+### Added
+- Fixed global `-a/--address` shorthand option to properly invoke the analyze command
+- Both `cana -a <address>` and `cana analyze <address>` now work identically
+
 ## [1.1.6] - 2024-03-25
 
 ### Added
