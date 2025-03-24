@@ -14,21 +14,13 @@ const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 // Selected configuration
 const DEFAULT_CONFIG = {
-    chains: {
-        ethereum: {
-            name: 'Ethereum Mainnet',
-            blockExplorer: 'https://api.etherscan.io/api',
-            blockExplorerName: 'Etherscan',
-            chainId: 1,
-            apiKey: ''
-        }
-    },
-    selectedChain: 'ethereum',
+    chains: {},
+    selectedChain: null,
     apiKeys: {},
     preferences: {
-        outputFormat: 'json'
+        outputFormat: 'json',
     },
-    lastUpdated: new Date().toISOString()
+    lastUpdated: new Date().toISOString(),
 };
 
 // Extended chains - these are available but not included by selected
@@ -111,18 +103,9 @@ async function initChainConfig() {
         // Check if config file exists, if not create it with defaults
         try {
             await fs.access(CONFIG_FILE);
-            
-            // If file exists, make sure the ethereum chain is present
-            const config = await loadConfig();
-            
-            // Ensure Ethereum is always present with the correct configuration
-            if (!config.chains || !config.chains.ethereum) {
-                config.chains = config.chains || {};
-                config.chains.ethereum = DEFAULT_CONFIG.chains.ethereum;
-                await saveConfig(config);
-            }
+            // Config file exists, leave it as is
         } catch (error) {
-            // File doesn't exist, create it with defaults
+            // File doesn't exist, create it with empty defaults
             await saveConfig(DEFAULT_CONFIG);
         }
         
@@ -143,17 +126,10 @@ async function getChains() {
     
     try {
         const config = await loadConfig();
-        
-        // Ensure ethereum is always present
-        const chains = config.chains || {};
-        if (!chains.ethereum) {
-            chains.ethereum = DEFAULT_CONFIG.chains.ethereum;
-        }
-        
-        return chains;
+        return config.chains || {};
     } catch (error) {
         console.error('Error loading chains:', error.message);
-        return DEFAULT_CONFIG.chains;
+        return {};
     }
 }
 

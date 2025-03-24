@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.6] - 2024-03-25
+
+### Added
+- Improved version detection with more reliable fallback mechanism
+
+### Changed
+- Initial setup now creates a true blank slate with no pre-configured chains
+- Setup process simplified with clearer configuration messages
+- Removed duplicate configuration file location display
+
 ## [1.1.3-1.1.5] - 2024-03-25
 
 ### Fixed

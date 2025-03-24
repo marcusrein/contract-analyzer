@@ -12,8 +12,7 @@ A powerful command-line tool for analyzing smart contracts on Ethereum and other
   - Proxy contract detection
   
 - 🌐 **Multi-Chain Support**
-  - Built-in support for Ethereum
-  - Easy addition of custom EVM-compatible chains
+  - Easy addition of any EVM-compatible chain
   - Chain configuration management
   - Default chain switching
   
@@ -32,37 +31,45 @@ npm install -g contract-analyzer
 
 ## Quick Start
 
-1. Chain Setup
+1. Initial Setup
 ```bash
 cana setup
 ```
-Add in Blockscanner API key and API URL endpoint into setup. The chain added will now be the `default` chain for all subsequent contract analysis. 
+This initializes the configuration at `~/.contract-analyzer/config.json` and guides you through adding your first blockchain network.
 
-2. Analyze a contract.
+2. Add Chain Details
+When prompted, provide:
+   - Chain name (e.g., "Ethereum Mainnet", "Base Sepolia")
+   - Block explorer API key
+   - Block explorer API endpoint URL
+   - Block explorer name
+
+3. Analyze a Contract
 ```bash
 cana analyze 0xYourContractAddress
-# or
+# or use the shorthand
 cana -a 0xYourContractAddress
 ```
 
-3. Add another chain:
+4. Add Additional Chains
 ```bash
 cana setup
 ```
+You can run setup anytime to add more chains.
 
-4. List all added chains:
+5. List Configured Chains
 ```bash
-cana chains
+cana chains list
 ```
 
-5. Switch default chain:
+6. Switch Active Chain
 ```bash
-cana chains --switch <chain-name> 
+cana chains --switch <chain-id> 
 # or use the shorthand
-cana chains -s <chain-name>
+cana chains -s <chain-id>
 ```
 
-Now that the default chain is switched, all subsequent analysis will be on this new default chain.
+All subsequent analysis commands will use the selected chain.
 
 ## Directory Structure
 
@@ -86,10 +93,6 @@ cana -a <address>
 # Analysis with specific chain
 cana analyze <address> -c <chain>
 cana -a <address> -c <chain>
-
-# Summary view
-cana analyze <address> --summary
-cana -a <address> --summary
 ```
 
 ## Chain Configuration
@@ -97,8 +100,9 @@ cana -a <address> --summary
 Chain configurations are stored in `~/.contract-analyzer/config.json`. This file contains:
 
 - List of configured chains and their details
-- Default chain selection
+- Currently selected chain
 - API keys for block explorers
+- User preferences
 
 ### Prerequisites
 
