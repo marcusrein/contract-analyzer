@@ -163,7 +163,7 @@ export async function setup() {
     console.log('   cana -a <contract-address>');
     
     console.log('\n📘 To add support for other EVM chains:');
-    console.log('   cana chains --add');
+    console.log('   cana setup');
     
     console.log('\n🔍 To switch chains:');
     console.log('   cana chains -s <chain>');
