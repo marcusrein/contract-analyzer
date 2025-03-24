@@ -55,14 +55,18 @@ const normalizeChainName = (name) => {
 export async function setup() {
     console.log('\n🚀 Setting up cana\n');
     
-    // Make CLI scripts executable
-    const spinner = createSpinner('Making CLI scripts executable...').start();
+    // Remove or modify the executable check since it's not needed for global installations
     try {
-        await fs.chmod(path.join(process.cwd(), 'cli.js'), '755');
-        spinner.success({ text: 'Made CLI scripts executable' });
+        // Only try to make executable if running from local development
+        if (process.env.NODE_ENV === 'development') {
+            await fs.chmod(path.join(process.cwd(), 'cli.js'), '755');
+            console.log('✔ Made CLI scripts executable');
+        }
     } catch (error) {
-        spinner.error({ text: `Failed to make scripts executable: ${error.message}` });
-        console.log('ℹ️  You may need to run: chmod +x cli.js');
+        // Don't show the error for production installations
+        if (process.env.NODE_ENV === 'development') {
+            console.log('ℹ️  Development mode: CLI script permissions check skipped');
+        }
     }
     
     // Initialize configuration
