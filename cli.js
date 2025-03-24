@@ -11,7 +11,7 @@ import os from 'os';
 import { 
     getChains, 
     getChain, 
-    addChain, 
+    addChain,
     removeChain,
     setSelectedChain,
     getSelectedChain,
@@ -47,6 +47,19 @@ try {
 }
 
 const program = new Command();
+
+// Register the setup command
+program
+  .command('setup')
+  .description('Set up or update the contract analyzer configuration')
+  .action(async () => {
+    try {
+      await setup();
+    } catch (error) {
+      console.error('Setup failed:', error.message);
+      process.exit(1);
+    }
+  });
 
 // Function to prompt for input
 const prompt = (query) => new Promise((resolve) => {
@@ -265,7 +278,8 @@ chainsCommand
                 console.log('\n🔍 For a list of all chains use:');
                 console.log('   cana chains list');
             } else {
-                console.log('\nTo add a new chain: cana setup');
+                console.log('\nTo add a new chain:');
+                console.log('  cana setup');
             }
             
         } catch (error) {

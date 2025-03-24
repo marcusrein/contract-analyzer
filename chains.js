@@ -292,7 +292,7 @@ async function setSelectedChain(id) {
  */
 async function getSelectedChain() {
     const config = await loadConfig();
-    return config.selectedChain || 'ethereum';
+    return config.selectedChain || '';
 }
 
 /**
