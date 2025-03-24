@@ -46,6 +46,20 @@ try {
   console.log('Warning: Could not read version from package.json:', error.message);
 }
 
+// Check if the global -a option was passed and convert it to 'analyze' command
+const args = process.argv.slice(2);
+for (let i = 0; i < args.length; i++) {
+    // If we find -a or --address followed by an address, convert to analyze command
+    if ((args[i] === '-a' || args[i] === '--address') && i + 1 < args.length) {
+        // Replace the -a/--address with 'analyze'
+        args[i] = 'analyze';
+        // The rest of the arguments stay the same
+        // Rewrite process.argv with the new command structure
+        process.argv = process.argv.slice(0, 2).concat(args);
+        break;
+    }
+}
+
 // Create a single program instance
 const program = new Command();
 
@@ -461,210 +475,315 @@ chainsCommand
         }
     });
 
-// Analyze command
-program
-    .command('analyze <address>')
-    .description('Analyze a smart contract')
-    .option('-c, --chain <chain>', 'Blockchain network to use (selected from global config or ethereum)', null)
-    .option('-k, --key <key>', 'Block explorer API key')
-    .option('-b, --block-range <number>', 'Block range size for scanning (reduce to 500 if you encounter range limit errors)', '1000')
-    .option('-d, --dev', 'Development mode - forces prompt for API keys', false)
-    .action(async (address, options) => {
-        try {
-            // Get current selected chain
-            const currentSelectedChain = await getSelectedChain();
-            
-            // Determine which chain to use (command line arg or selected)
-            const chain = (options.chain || currentSelectedChain).toLowerCase();
-            
-            // If chain is not the current selected, update the selected
-            if (chain !== currentSelectedChain) {
-                await updateSelectedChain(chain);
-            }
-
-            // If chain is not ethereum, remind user they're using a non-selected chain
-            if (chain !== 'ethereum') {
-                console.log(`\n⚠️  Using chain: ${chain.toUpperCase()}`);
-                console.log('   This is now your selected chain for future commands');
-                console.log('   You can also use: cana chains -s <chain>');
-            }
-            
-            // Get all available networks
-            const networks = await getChains();
-            
-            // Validate chain selection
-            if (!networks[chain]) {
-                console.error(`\n❌ Error: Unsupported chain "${chain}"`);
-                console.log('\nAvailable chains:');
-                console.log(`- ethereum (selected)`);
-                
-                const otherNetworks = Object.keys(networks).filter(id => id !== 'ethereum');
-                if (otherNetworks.length > 0) {
-                    otherNetworks.forEach(id => console.log(`- ${id}`));
-                }
-                
-                console.log('\nTo add a new chain, run:');
-                console.log('cana chains add');
-                
-                process.exit(1);
-            }
-            
-            // Get the chain configuration
-            const chainConfig = networks[chain];
-            const explorerKeyEnvName = `${chain.toUpperCase()}_EXPLORER_KEY`;
-            
-            // Load API keys from global config
-            const apiKeys = await loadApiKeys();
-            
-            // Get or validate Explorer API key
-            let explorerApiKey = options.key || apiKeys[explorerKeyEnvName] || process.env[explorerKeyEnvName] || process.env.ETHERSCAN_API_KEY;
-            
-            // Validate API keys
-            const keyErrors = validateApiKeys(explorerApiKey);
-            
-            // Check if keys are valid or dev mode is enabled
-            const needsKeys = options.dev || keyErrors.length > 0;
-
-            // If no API keys are provided or they're default values, prompt for them
-            if (needsKeys) {
-                console.log('\n🔑 API Key Required');
-                console.log('-----------------');
-                console.log(`Chain: ${chainConfig.name}`);
-                console.log(`Block Explorer: ${chainConfig.blockExplorerName}`);
-                
-                if (keyErrors.length > 0) {
-                    console.log('\n⚠️  API Key Issues Detected:');
-                    keyErrors.forEach(err => console.log(`  - ${err}`));
-                }
-
-                console.log(`\nPlease enter your ${chainConfig.blockExplorerName} API key:`);
-                console.log(`You can get one at ${chainConfig.blockExplorer.replace('/api', '')}`);
-                explorerApiKey = await prompt(`${chainConfig.blockExplorerName} API Key: `);
-
-                // Save the key to .env file
-                const saved = await saveApiKeys(
-                    chain,
-                    explorerApiKey
-                );
-                
-                if (!saved) {
-                    console.log('\n⚠️  Could not save API key to .env file, but continuing with provided key...');
+// Define the analyze function that will be used for both the command and global option
+async function analyzeContract(address, options = {}) {
+    // Import chalk early to ensure it's available in error handling
+    const chalk = await import('chalk').catch(() => {
+        // If chalk is not installed, provide a basic implementation
+        return {
+            default: {
+                green: (text) => text,
+                yellow: (text) => text,
+                blue: (text) => text,
+                cyan: (text) => text,
+                red: (text) => text,
+                gray: (text) => text,
+                bold: {
+                    green: (text) => text,
+                    yellow: (text) => text,
+                    blue: (text) => text,
+                    white: (text) => text
                 }
             }
+        };
+    });
+    
+    // Helper function to create a table-like display - defined early to ensure availability
+    const createTable = (data, headers = null) => {
+        // Find the longest string in each column
+        const columnLengths = {};
+        
+        // Initialize with header lengths if provided
+        if (headers) {
+            Object.keys(headers).forEach(key => {
+                columnLengths[key] = headers[key].length;
+            });
+        }
+        
+        // Check data lengths
+        data.forEach(row => {
+            Object.keys(row).forEach(key => {
+                const valueLength = String(row[key]).length;
+                columnLengths[key] = Math.max(columnLengths[key] || 0, valueLength);
+            });
+        });
+        
+        // Print headers if provided
+        let output = '';
+        if (headers) {
+            Object.keys(headers).forEach(key => {
+                output += chalk.default.bold.white(headers[key].padEnd(columnLengths[key] + 2));
+            });
+            output += '\n';
+            Object.keys(headers).forEach(key => {
+                output += '─'.repeat(columnLengths[key]) + '  ';
+            });
+            output += '\n';
+        }
+        
+        // Print rows
+        data.forEach(row => {
+            Object.keys(row).forEach(key => {
+                output += String(row[key]).padEnd(columnLengths[key] + 2);
+            });
+            output += '\n';
+        });
+        
+        return output;
+    };
+    
+    // Variables to be used in error handling
+    let result;
+    let chainConfig;
+    
+    try {
+        // Get current selected chain
+        const currentSelectedChain = await getSelectedChain();
+        
+        // Determine which chain to use (command line arg or selected)
+        const chain = (options.chain || currentSelectedChain).toLowerCase();
+        
+        // If chain is not the current selected, update the selected
+        if (chain !== currentSelectedChain) {
+            await updateSelectedChain(chain);
+        }
 
-            console.log('\n🔍 Starting contract analysis...');
-            console.log(`Contract Address: ${address}`);
-            console.log(`Network: ${chainConfig.name}`);
+        // If chain is not ethereum, remind user they're using a non-selected chain
+        if (chain !== 'ethereum') {
+            console.log(`\n⚠️  Using chain: ${chain.toUpperCase()}`);
+            console.log('   This is now your selected chain for future commands');
+            console.log('   You can also use: cana chains -s <chain>');
+        }
+        
+        // Get all available networks
+        const networks = await getChains();
+        
+        // Validate chain selection
+        if (!networks[chain]) {
+            console.error(`\n❌ Error: Unsupported chain "${chain}"`);
+            console.log('\nAvailable chains:');
+            console.log(`- ethereum (selected)`);
+            
+            const otherNetworks = Object.keys(networks).filter(id => id !== 'ethereum');
+            if (otherNetworks.length > 0) {
+                otherNetworks.forEach(id => console.log(`- ${id}`));
+            }
+            
+            console.log('\nTo add a new chain, run:');
+            console.log('cana chains add');
+            
+            process.exit(1);
+        }
+        
+        // Get the chain configuration
+        chainConfig = networks[chain];
+        const explorerKeyEnvName = `${chain.toUpperCase()}_EXPLORER_KEY`;
+        
+        // Load API keys from global config
+        const apiKeys = await loadApiKeys();
+        
+        // Get or validate Explorer API key
+        let explorerApiKey = options.key || apiKeys[explorerKeyEnvName] || process.env[explorerKeyEnvName] || process.env.ETHERSCAN_API_KEY;
+        
+        // Validate API keys
+        const keyErrors = validateApiKeys(explorerApiKey);
+        
+        // Check if keys are valid or dev mode is enabled
+        const needsKeys = options.dev || keyErrors.length > 0;
+
+        // If no API keys are provided or they're default values, prompt for them
+        if (needsKeys) {
+            console.log('\n🔑 API Key Required');
+            console.log('-----------------');
+            console.log(`Chain: ${chainConfig.name}`);
             console.log(`Block Explorer: ${chainConfig.blockExplorerName}`);
-
-            const result = await getDeploymentBlock(
-                null,
-                address,
-                explorerApiKey,
-                parseInt(options.blockRange),
-                chainConfig.blockExplorer,
-                chain
-            );
-
-            if (!result) {
-                console.error('\n❌ Analysis failed or no deployment found');
-                console.log('\nTry running with the dev flag to re-enter API keys:');
-                console.log(`cana analyze ${address} -d`);
-                process.exit(1);
-            }
             
-            const chalk = await import('chalk').catch(() => {
-                // If chalk is not installed, provide a basic implementation
-                return {
-                    default: {
-                        green: (text) => text,
-                        yellow: (text) => text,
-                        blue: (text) => text,
-                        cyan: (text) => text,
-                        red: (text) => text,
-                        gray: (text) => text,
-                        bold: {
-                            green: (text) => text,
-                            yellow: (text) => text,
-                            blue: (text) => text,
-                            white: (text) => text
-                        }
-                    }
-                };
+            if (keyErrors.length > 0) {
+                console.log('\n⚠️  API Key Issues Detected:');
+                keyErrors.forEach(err => console.log(`  - ${err}`));
+            }
+
+            console.log(`\nPlease enter your ${chainConfig.blockExplorerName} API key:`);
+            console.log(`You can get one at ${chainConfig.blockExplorer.replace('/api', '')}`);
+            explorerApiKey = await prompt(`${chainConfig.blockExplorerName} API Key: `);
+
+            // Save the key to .env file
+            const saved = await saveApiKeys(
+                chain,
+                explorerApiKey
+            );
+            
+            if (!saved) {
+                console.log('\n⚠️  Could not save API key to .env file, but continuing with provided key...');
+            }
+        }
+
+        console.log('\n🔍 Starting contract analysis...');
+        console.log(`Contract Address: ${address}`);
+        console.log(`Network: ${chainConfig.name}`);
+        console.log(`Block Explorer: ${chainConfig.blockExplorerName}`);
+
+        result = await getDeploymentBlock(
+            null,
+            address,
+            explorerApiKey,
+            parseInt(options.blockRange || 1000),
+            chainConfig.blockExplorer,
+            chain
+        );
+
+        if (!result) {
+            console.error('\n❌ Analysis failed or no deployment found');
+            console.log('\nTry running with the dev flag to re-enter API keys:');
+            console.log(`cana analyze ${address} -d`);
+            process.exit(1);
+        }
+        
+        console.log('\n' + chalk.default.bold.green('✅ CONTRACT ANALYSIS COMPLETE') + '\n');
+        
+        // Contract Information Section
+        console.log(chalk.default.bold.blue('📄 CONTRACT INFORMATION'));
+        console.log('───────────────────────────────────');
+        
+        const contractInfoTable = [
+            { property: 'Address', value: chalk.default.yellow(address) },
+            { property: 'Name', value: result.contractInfo?.contractName || (result.contractInfo?.isVerified === false ? '(Contract not verified)' : 'Unknown') },
+            { property: 'Network', value: chainConfig.name },
+            { property: 'Deployment Block', value: result.deploymentBlock || 'Unknown' },
+            { property: 'Verified', value: result.contractInfo?.isVerified ? chalk.default.green('Yes') : chalk.default.yellow('No') },
+            { property: 'Proxy', value: result.contractInfo?.proxy ? chalk.default.yellow('Yes') : (result.contractInfo?.isVerified === false ? '(Verification required)' : 'No') }
+        ];
+        
+        // Modified logic to display implementation information for proxies
+        if (result.contractInfo?.proxy) {
+            if (result.contractInfo.implementation && result.contractInfo.implementation !== '') {
+                contractInfoTable.push({ property: 'Implementation', value: result.contractInfo.implementation });
+            } else {
+                contractInfoTable.push({ property: 'Implementation', value: chalk.default.yellow('Unknown (proxy detected but implementation not found)') });
+            }
+        }
+        
+        // Add a small separator before links section
+        contractInfoTable.push({ property: '---', value: '---' });
+        
+        // Always add explorer links if possible - make them clickable with terminal formatting
+        if (chainConfig.blockExplorer) {
+            const explorerBaseUrl = chainConfig.blockExplorer.replace('/api', '');
+            const explorerLink = `${explorerBaseUrl}/address/${address}`;
+            contractInfoTable.push({ 
+                property: 'Explorer Link', 
+                value: chalk.default.blue.underline(explorerLink)
             });
             
-            // Helper function to create a table-like display
-            const createTable = (data, headers = null) => {
-                // Find the longest string in each column
-                const columnLengths = {};
-                
-                // Initialize with header lengths if provided
-                if (headers) {
-                    Object.keys(headers).forEach(key => {
-                        columnLengths[key] = headers[key].length;
-                    });
-                }
-                
-                // Check data lengths
-                data.forEach(row => {
-                    Object.keys(row).forEach(key => {
-                        const valueLength = String(row[key]).length;
-                        columnLengths[key] = Math.max(columnLengths[key] || 0, valueLength);
+            // Add implementation link if this is a proxy contract
+            if (result?.contractInfo?.proxy && result.contractInfo.implementation && result.contractInfo.implementation !== '') {
+                const implementationLink = `${explorerBaseUrl}/address/${result.contractInfo.implementation}`;
+                contractInfoTable.push({ 
+                    property: 'Implementation Link', 
+                    value: chalk.default.blue.underline(implementationLink)
+                });
+            }
+        }
+        
+        if (result.contractInfo?.sourceUrl && result.contractInfo.isVerified) {
+            contractInfoTable.push({ 
+                property: 'Source Code', 
+                value: chalk.default.blue.underline(result.contractInfo.sourceUrl)
+            });
+        } else if (result.contractInfo?.isVerified === false) {
+            contractInfoTable.push({ 
+                property: 'Source Code', 
+                value: '(Contract not verified)' 
+            });
+        }
+        
+        console.log(createTable(contractInfoTable));
+        
+        // Add a small separator after links section
+        console.log('───────────');
+        
+        // Files Section - REMOVING THIS SECTION
+        // console.log(chalk.default.bold.blue('💾 SAVED FILES'));
+        // console.log('───────────────────');
+        
+        const outputDir = path.join('contracts-analyzed', result.outputDir || 'contract-info');
+        
+        // const filesTable = [];
+        
+        // filesTable.push(
+        //     { file: `${outputDir}/abi.json`, description: 'Placeholder ABI (Contract not verified)' },
+        //     { file: `${outputDir}/event-information.json`, description: 'On-chain Event Examples (limited data)' }
+        // );
+        
+        // Add additional note about verification
+        console.log(chalk.default.yellow('⚠️ This contract is not verified. Limited data available.'));
+        console.log(chalk.default.yellow('   To access full contract details, verify the contract on the block explorer.'));
+        console.log(chalk.default.yellow('   No data was saved to disk since the contract is unverified.'));
+        
+        // console.log(createTable(filesTable));
+        
+        // Event Signature Section (even if unverified, we might have collected some information)
+        if (result.contractInfo?.eventSignatures?.length > 0 || result.events?.length > 0) {
+            console.log(chalk.default.bold.blue('📊 EVENT SIGNATURES'));
+            console.log('─────────────────────');
+            
+            const eventSigTable = [];
+            
+            if (result.contractInfo?.eventSignatures?.length > 0) {
+                result.contractInfo.eventSignatures.forEach(event => {
+                    eventSigTable.push({
+                        name: event.name || 'Unknown',
+                        signature: event.signature || '-',
+                        hash: event.signatureHash || '-'
                     });
                 });
                 
-                // Print headers if provided
-                let output = '';
-                if (headers) {
-                    Object.keys(headers).forEach(key => {
-                        output += chalk.default.bold.white(headers[key].padEnd(columnLengths[key] + 2));
-                    });
-                    output += '\n';
-                    Object.keys(headers).forEach(key => {
-                        output += '─'.repeat(columnLengths[key]) + '  ';
-                    });
-                    output += '\n';
-                }
-                
-                // Print rows
-                data.forEach(row => {
-                    Object.keys(row).forEach(key => {
-                        output += String(row[key]).padEnd(columnLengths[key] + 2);
-                    });
-                    output += '\n';
-                });
-                
-                return output;
-            };
+                console.log(createTable(eventSigTable, { name: 'Event Name', signature: 'Signature', hash: 'Hash' }));
+            } else {
+                console.log(chalk.default.yellow('⚠️ No event signatures found or contract not verified.'));
+                console.log(chalk.default.yellow('   However, on-chain events have been collected to help with analysis.'));
+            }
+        }
+
+        if (result.contractInfo?.isVerified) {
+            console.log('\n' + chalk.default.bold.green('Analysis finished. All data saved to disk.') + '\n');
+        } else {
+            console.log('\n' + chalk.default.bold.green('Analysis finished. No data saved to disk for unverified contracts.') + '\n');
+        }
+    } catch (error) {
+        console.error(`\n❌ Error during analysis: ${error.message}`);
+        
+        // Handle special case for unverified contracts
+        if (error.message.includes('Cannot read properties of null (reading \'abi\')') && result) {
+            // This is a special case for unverified contracts
+            console.log('\n' + chalk.default.bold.green('✅ UNVERIFIED CONTRACT ANALYSIS') + '\n');
             
-            console.log('\n' + chalk.default.bold.green('✅ CONTRACT ANALYSIS COMPLETE') + '\n');
-            
-            // Contract Information Section
+            // Contract Information Section - still show what we can
             console.log(chalk.default.bold.blue('📄 CONTRACT INFORMATION'));
             console.log('───────────────────────────────────');
             
             const contractInfoTable = [
                 { property: 'Address', value: chalk.default.yellow(address) },
-                { property: 'Name', value: result.contractInfo?.contractName || (result.contractInfo?.isVerified === false ? '(Contract not verified)' : 'Unknown') },
+                { property: 'Name', value: '(Contract not verified)' },
                 { property: 'Network', value: chainConfig.name },
-                { property: 'Deployment Block', value: result.deploymentBlock || 'Unknown' },
-                { property: 'Verified', value: result.contractInfo?.isVerified ? chalk.default.green('Yes') : chalk.default.yellow('No') },
-                { property: 'Proxy', value: result.contractInfo?.proxy ? chalk.default.yellow('Yes') : (result.contractInfo?.isVerified === false ? '(Verification required)' : 'No') }
+                { property: 'Deployment Block', value: result?.deploymentBlock || 'Unknown' },
+                { property: 'Verified', value: chalk.default.yellow('No') }
             ];
-            
-            // Modified logic to display implementation information for proxies
-            if (result.contractInfo?.proxy) {
-                if (result.contractInfo.implementation && result.contractInfo.implementation !== '') {
-                    contractInfoTable.push({ property: 'Implementation', value: result.contractInfo.implementation });
-                } else {
-                    contractInfoTable.push({ property: 'Implementation', value: chalk.default.yellow('Unknown (proxy detected but implementation not found)') });
-                }
-            }
             
             // Add a small separator before links section
             contractInfoTable.push({ property: '---', value: '---' });
             
-            // Always add explorer links if possible - make them clickable with terminal formatting
+            // Always add explorer links
             if (chainConfig.blockExplorer) {
                 const explorerBaseUrl = chainConfig.blockExplorer.replace('/api', '');
                 const explorerLink = `${explorerBaseUrl}/address/${address}`;
@@ -672,216 +791,53 @@ program
                     property: 'Explorer Link', 
                     value: chalk.default.blue.underline(explorerLink)
                 });
-                
-                // Add implementation link if this is a proxy contract
-                if (result?.contractInfo?.proxy && result.contractInfo.implementation && result.contractInfo.implementation !== '') {
-                    const implementationLink = `${explorerBaseUrl}/address/${result.contractInfo.implementation}`;
-                    contractInfoTable.push({ 
-                        property: 'Implementation Link', 
-                        value: chalk.default.blue.underline(implementationLink)
-                    });
-                }
             }
             
-            if (result.contractInfo?.sourceUrl && result.contractInfo.isVerified) {
-                contractInfoTable.push({ 
-                    property: 'Source Code', 
-                    value: chalk.default.blue.underline(result.contractInfo.sourceUrl)
+            // Add proxy information when available (this section is already handled earlier in the code)
+            if (result?.contractInfo?.proxy) {
+                contractInfoTable.push({
+                    property: 'Proxy', 
+                    value: chalk.default.yellow('Yes')
                 });
-            } else if (result.contractInfo?.isVerified === false) {
-                contractInfoTable.push({ 
-                    property: 'Source Code', 
-                    value: '(Contract not verified)' 
+                
+                if (result.contractInfo.implementation && result.contractInfo.implementation !== '') {
+                    contractInfoTable.push({
+                        property: 'Implementation',
+                        value: result.contractInfo.implementation
+                    });
+                } else {
+                    contractInfoTable.push({
+                        property: 'Implementation',
+                        value: chalk.default.yellow('Unknown (proxy detected but implementation not found)')
+                    });
+                }
+            } else {
+                contractInfoTable.push({
+                    property: 'Proxy', 
+                    value: '(Verification required to determine)'
                 });
             }
             
             console.log(createTable(contractInfoTable));
-            
-            // Add a small separator after links section
-            console.log('───────────');
-            
-            // Files Section - REMOVING THIS SECTION
-            // console.log(chalk.default.bold.blue('💾 SAVED FILES'));
-            // console.log('───────────────────');
-            
-            const outputDir = path.join('contracts-analyzed', result.outputDir || 'contract-info');
-            
-            // const filesTable = [];
-            
-            if (result.contractInfo?.isVerified) {
-                // filesTable.push(
-                //     { file: `${outputDir}/abi.json`, description: 'Contract ABI' },
-                //     { file: `${outputDir}/contract/`, description: 'Individual Contract Source Files' },
-                //     { file: `${outputDir}/event-information.json`, description: 'Contract Event Signatures and Examples (3 per type)' }
-                // );
-            } else {
-                // filesTable.push(
-                //     { file: `${outputDir}/abi.json`, description: 'Placeholder ABI (Contract not verified)' },
-                //     { file: `${outputDir}/event-information.json`, description: 'On-chain Event Examples (limited data)' }
-                // );
-                
-                // Add additional note about verification
-                console.log(chalk.default.yellow('⚠️ This contract is not verified. Limited data available.'));
-                console.log(chalk.default.yellow('   To access full contract details, verify the contract on the block explorer.'));
-                console.log(chalk.default.yellow('   No data was saved to disk since the contract is unverified.'));
-            }
-            
-            // console.log(createTable(filesTable));
-            
-            // Event Signature Section (even if unverified, we might have collected some information)
-            if (result.contractInfo?.eventSignatures?.length > 0 || events?.length > 0) {
-                console.log(chalk.default.bold.blue('📊 EVENT SIGNATURES'));
-                console.log('─────────────────────');
-                
-                const eventSigTable = [];
-                
-                if (result.contractInfo?.eventSignatures?.length > 0) {
-                    result.contractInfo.eventSignatures.forEach(event => {
-                        eventSigTable.push({
-                            name: event.name || 'Unknown',
-                            signature: event.signature || '-',
-                            hash: event.signatureHash || '-'
-                        });
-                    });
-                    
-                    console.log(createTable(eventSigTable, { name: 'Event Name', signature: 'Signature', hash: 'Hash' }));
-                } else {
-                    console.log(chalk.default.yellow('⚠️ No event signatures found or contract not verified.'));
-                    console.log(chalk.default.yellow('   However, on-chain events have been collected to help with analysis.'));
-                }
-            }
-
-            if (result.contractInfo?.isVerified) {
-                console.log('\n' + chalk.default.bold.green('Analysis finished. All data saved to disk.') + '\n');
-            } else {
-                console.log('\n' + chalk.default.bold.green('Analysis finished. No data saved to disk for unverified contracts.') + '\n');
-            }
-            
-    
-
-        } catch (error) {
-            console.error('\n❌ Error:', error.message);
-            
-            if (error.message.includes('Cannot read properties of null (reading \'abi\')')) {
-                // This is a special case for unverified contracts
-                console.log('\n' + chalk.default.bold.green('✅ UNVERIFIED CONTRACT ANALYSIS') + '\n');
-                
-                // Contract Information Section - still show what we can
-                console.log(chalk.default.bold.blue('📄 CONTRACT INFORMATION'));
-                console.log('───────────────────────────────────');
-                
-                const contractInfoTable = [
-                    { property: 'Address', value: chalk.default.yellow(address) },
-                    { property: 'Name', value: '(Contract not verified)' },
-                    { property: 'Network', value: chainConfig.name },
-                    { property: 'Deployment Block', value: result?.deploymentBlock || 'Unknown' },
-                    { property: 'Verified', value: chalk.default.yellow('No') }
-                ];
-                
-                // Add a small separator before links section
-                contractInfoTable.push({ property: '---', value: '---' });
-                
-                // Always add explorer links
-                if (chainConfig.blockExplorer) {
-                    const explorerBaseUrl = chainConfig.blockExplorer.replace('/api', '');
-                    const explorerLink = `${explorerBaseUrl}/address/${address}`;
-                    contractInfoTable.push({ 
-                        property: 'Explorer Link', 
-                        value: chalk.default.blue.underline(explorerLink)
-                    });
-                    
-                    // Add implementation link if this is a proxy contract
-                    if (result?.contractInfo?.proxy && result.contractInfo.implementation && result.contractInfo.implementation !== '') {
-                        const implementationLink = `${explorerBaseUrl}/address/${result.contractInfo.implementation}`;
-                        contractInfoTable.push({ 
-                            property: 'Implementation Link', 
-                            value: chalk.default.blue.underline(implementationLink)
-                        });
-                    }
-                }
-                
-                // Add proxy information when available (this section is already handled earlier in the code)
-                if (result?.contractInfo?.proxy) {
-                    contractInfoTable.push({
-                        property: 'Proxy', 
-                        value: chalk.default.yellow('Yes')
-                    });
-                    
-                    if (result.contractInfo.implementation && result.contractInfo.implementation !== '') {
-                        contractInfoTable.push({
-                            property: 'Implementation',
-                            value: result.contractInfo.implementation
-                        });
-                    } else {
-                        contractInfoTable.push({
-                            property: 'Implementation',
-                            value: chalk.default.yellow('Unknown (proxy detected but implementation not found)')
-                        });
-                    }
-                } else {
-                    contractInfoTable.push({
-                        property: 'Proxy', 
-                        value: '(Verification required to determine)'
-                    });
-                }
-                
-                console.log(createTable(contractInfoTable));
-                
-                // Add a small separator after links section
-                console.log('───────────');
-                
-                // Files Section - REMOVING THIS SECTION
-                // console.log(chalk.default.bold.blue('💾 SAVED FILES'));
-                // console.log('───────────────────');
-                
-                const outputDir = path.join('contracts-analyzed', result.outputDir || 'contract-info');
-                
-                // const filesTable = [];
-                
-                // filesTable.push(
-                //     { file: `${outputDir}/abi.json`, description: 'Placeholder ABI (Contract not verified)' },
-                //     { file: `${outputDir}/event-information.json`, description: 'On-chain Event Examples (limited data)' }
-                // );
-                
-                // Add additional note about verification
-                console.log(chalk.default.yellow('⚠️ This contract is not verified. Limited data available.'));
-                console.log(chalk.default.yellow('   To access full contract details, verify the contract on the block explorer.'));
-                console.log(chalk.default.yellow('   No data was saved to disk since the contract is unverified.'));
-                
-                // console.log(createTable(filesTable));
-                
-                // Event Signature Section (even if unverified, we might have collected some information)
-                if (result.contractInfo?.eventSignatures?.length > 0 || events?.length > 0) {
-                    console.log(chalk.default.bold.blue('📊 EVENT SIGNATURES'));
-                    console.log('─────────────────────');
-                    
-                    const eventSigTable = [];
-                    
-                    if (result.contractInfo?.eventSignatures?.length > 0) {
-                        result.contractInfo.eventSignatures.forEach(event => {
-                            eventSigTable.push({
-                                name: event.name || 'Unknown',
-                                signature: event.signature || '-',
-                                hash: event.signatureHash || '-'
-                            });
-                        });
-                        
-                        console.log(createTable(eventSigTable, { name: 'Event Name', signature: 'Signature', hash: 'Hash' }));
-                    } else {
-                        console.log(chalk.default.yellow('⚠️ No event signatures found or contract not verified.'));
-                        console.log(chalk.default.yellow('   However, on-chain events have been collected to help with analysis.'));
-                    }
-                }
-
-                if (result.contractInfo?.isVerified) {
-                    console.log('\n' + chalk.default.bold.green('Analysis finished. All data saved to disk.') + '\n');
-                } else {
-                    console.log('\n' + chalk.default.bold.green('Analysis finished. No data saved to disk for unverified contracts.') + '\n');
-                }
-                
-               
-            }
+            console.log('\n' + chalk.default.bold.green('Analysis finished. Limited data available for unverified contracts.') + '\n');
+            return;
         }
-    });
+        
+        process.exit(1);
+    }
+}
+
+// Analyze command using the common function
+program
+    .command('analyze <address>')
+    .description('Analyze a smart contract')
+    .option('-c, --chain <chain>', 'Blockchain network to use (selected from global config or ethereum)', null)
+    .option('-k, --key <key>', 'Block explorer API key')
+    .option('-b, --block-range <number>', 'Block range size for scanning (reduce to 500 if you encounter range limit errors)', '1000')
+    .option('-d, --dev', 'Development mode - forces prompt for API keys', false)
+    .action(analyzeContract);
 
 program.parse(process.argv);
+
+// The old code for handling the global -a/--address option has been replaced
+// by the preprocessing of process.argv at the beginning of the file
