@@ -64,9 +64,9 @@ cana chains list
 
 6. Switch Active Chain
 ```bash
-cana chains --switch <chain-id> 
+cana chains --switch <chain-name> 
 # or use the shorthand
-cana chains -s <chain-id>
+cana chains -s <chain-name>
 ```
 
 All subsequent analysis commands will use the selected chain.
