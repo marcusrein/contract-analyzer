@@ -2,112 +2,95 @@
 
 A powerful command-line tool for analyzing smart contracts on Ethereum and other EVM-compatible blockchains.
 
-## Features
+## Verification Process
 
-- 🔍 **Contract Analysis**
-  - Deployment block detection
-  - Source code verification status
-  - Contract ABI extraction
-  - Event signature analysis
-  - Proxy contract detection
-  
-- 🌐 **Multi-Chain Support**
-  - Easy addition of any EVM-compatible chain
-  - Chain configuration management
-  - Default chain switching
-  
-- 📁 **Organized Output**
-  - All analyzed contracts stored in `contracts-analyzed/` directory
-  - Clear folder structure with contract name and chain
-  - Individual contract files separated in contract/ directory
-  - Event information with formatted examples
+Cana uses a two-step process to get contract information:
+
+1.  **Sourcify:** It first checks the [Sourcify](https://sourcify.dev/) repository, a decentralized and open-source contract verification service. If a contract has a **full** or **partial** match on Sourcify, Cana retrieves the verified metadata and ABI directly from there. This is the preferred method and **does not require any API keys**. Metadata is saved to `contracts-analyzed/<chain-id>/<address>/metadata.json`.
+
+2.  **Block Explorer Fallback:** If the contract is **not found** on Sourcify, Cana attempts to fetch the ABI from the block explorer configured for the target chain (e.g., Etherscan, Polygonscan). This fallback mechanism **requires a block explorer API key** to function reliably and avoid rate limits. The ABI (if found) is saved to `contracts-analyzed/<chain-id>/<address>/abi.json`.
+
+Therefore, while the tool can function for Sourcify-verified contracts without setup, running `cana setup` is **highly recommended** to enable the block explorer fallback for broader contract compatibility.
 
 ## Installation
 
 ```bash
-# Install globally from npm
-npm install -g contract-analyzer
+# Clone the repository (if not done already)
+# git clone https://github.com/marcusrein/contract-analyzer.git
+# cd contract-analyzer
+
+# Install dependencies
+npm install
+
+# Link the binary for global use
+npm link
 ```
 
 ## Quick Start
 
-1. Initial Setup
-```bash
-cana setup
-```
-This initializes the configuration at `~/.contract-analyzer/config.json` and guides you through adding your first blockchain network.
+1.  **(Recommended) Configure API Keys:**
+    ```bash
+    cana setup
+    ```
+    This interactive prompt helps you store API keys for the block explorer fallback for each configured chain (defined in `config/chains.json`).
 
-2. Add Chain Details
-When prompted, provide:
-   - Chain name (e.g., "Ethereum Mainnet", "Base Sepolia")
-   - Block explorer API key
-   - Block explorer API endpoint URL
-   - Block explorer name
+2.  **Analyze a Contract:**
+    ```bash
+    # Analyze using the default chain (set in config/chains.json)
+    cana analyze 0xYourContractAddress
 
-3. Analyze a Contract
-```bash
-cana analyze 0xYourContractAddress
-# or use the shorthand
-cana -a 0xYourContractAddress
-```
+    # Analyze on a specific chain
+    cana analyze 0xAnotherContractAddress -c <chainId>
+    ```
+    Results (metadata or ABI) are saved in the `contracts-analyzed/` directory.
 
-4. Add Additional Chains
-```bash
-cana setup
-```
-You can run setup anytime to add more chains.
+3.  **Manage Chains:**
+    ```bash
+    # List configured chains
+    cana chains list
 
-5. List Configured Chains
-```bash
-cana chains list
-```
+    # Set the default chain
+    cana chains set <chainId>
 
-6. Switch Active Chain
-```bash
-cana chains --switch <chain-name> 
-# or use the shorthand
-cana chains -s <chain-name>
-```
+    # Add a new chain interactively
+    cana chains add
 
-All subsequent analysis commands will use the selected chain.
+    # Remove a chain
+    cana chains remove <chainId>
+    ```
 
 ## Directory Structure
 
-When analyzing a contract, Cana creates the following structure wherever you run the CLI:
+Analysis results are saved in:
 ```
 contracts-analyzed/
-└── ContractName_chainName_YYYY-MM-DD/
-  ├── contract/            # Folder for individual contract files
-  ├── abi.json              # Contract ABI
-  └── event-information.json # Event signatures and examples
+└── <chainId>/
+    └── <contractAddress>/
+        ├── analysis_summary.json # Details about the verification outcome (source, status)
+        ├── metadata.json         # (If found on Sourcify)
+        └── abi.json              # (If ABI found via Sourcify or Block Explorer fallback)
 ```
 
 ## Commands
 
-### Contract Analysis
-```bash
-# Basic analysis
-cana analyze <address>
-cana -a <address>
+*   `cana analyze <address> [options]`
+    *   `-c, --chain <chainId>`: Specify target chain ID.
+*   `cana chains list|ls`
+*   `cana chains set <chainId>`
+*   `cana chains add`
+*   `cana chains remove|rm <chainId>`
+*   `cana setup`
+*   `cana --help`
+*   `cana <command> --help`
 
-# Analysis with specific chain
-cana analyze <address> -c <chain>
-cana -a <address> -c <chain>
-```
+## Configuration
 
-## Chain Configuration
+Chain details and API keys are stored in `config/chains.json`. You can edit this file directly or use the `cana chains` and `cana setup` commands.
 
-Chain configurations are stored in `~/.contract-analyzer/config.json`. This file contains:
+## Prerequisites
 
-- List of configured chains and their details
-- Currently selected chain
-- API keys for block explorers
-- User preferences
-
-### Prerequisites
-
-- Node.js v16 or higher
-- npm v6 or higher
+- Node.js v18 or higher (due to native fetch usage, or ensure `node-fetch` is installed)
+- npm
 
 ## Contributing
 

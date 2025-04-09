@@ -3,9 +3,8 @@
 	"version": "1.1.7",
 	"description": "A utility to analyze smart contracts on Ethereum and other EVM-compatible blockchains",
 	"type": "module",
-	"main": "startBlock.js",
 	"bin": {
-		"cana": "./cli.js"
+		"cana": "./src/index.js"
 	},
 	"scripts": {
 		"start": "node startBlock.js",
@@ -39,9 +38,12 @@
 	"dependencies": {
 		"chalk": "^5.4.1",
 		"commander": "^11.1.0",
-		"dotenv": "^16.3.1",
+		"dotenv": "^16.4.7",
 		"ethers": "^6.13.5",
-		"nanospinner": "^1.1.0"
+		"inquirer": "^12.5.2",
+		"nanospinner": "^1.1.0",
+		"node-fetch": "^3.3.2",
+		"table": "^6.9.0"
 	},
 	"devDependencies": {
 		"eslint": "^8.56.0",
