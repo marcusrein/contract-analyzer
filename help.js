@@ -2,7 +2,7 @@
 
 /**
  * Help script for contract-analyzer
- * 
+ *
  * This script provides a simple interface to show commonly used commands.
  */
 
@@ -55,4 +55,4 @@ console.log('  2. An RPC URL (e.g., "https://polygon-rpc.com" or "https://provid
 console.log('  3. A block explorer API URL (e.g., "https://api.polygonscan.com/api")');
 console.log('  4. The name of the block explorer (e.g., "Polygonscan")');
 
-console.log(); 
+console.log();
