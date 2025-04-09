@@ -712,7 +712,11 @@ async function analyzeContract(address, options = {}) {
 
     // Always add explorer links if possible - make them clickable with terminal formatting
     if (chainConfig.blockExplorer) {
-      const explorerBaseUrl = chainConfig.blockExplorer.replace('/api', '');
+      // Correctly derive base URL by removing /api if present
+      const explorerBaseUrl = chainConfig.blockExplorer.endsWith('/api')
+        ? chainConfig.blockExplorer.slice(0, -4)
+        : chainConfig.blockExplorer;
+
       const explorerLink = `${explorerBaseUrl}/address/${address}`;
       contractInfoTable.push({
         property: 'Explorer Link',
@@ -725,6 +729,7 @@ async function analyzeContract(address, options = {}) {
         result.contractInfo.implementation &&
         result.contractInfo.implementation !== ''
       ) {
+        // Use the same derived base URL
         const implementationLink = `${explorerBaseUrl}/address/${result.contractInfo.implementation}`;
         contractInfoTable.push({
           property: 'Implementation Link',
@@ -856,7 +861,10 @@ async function analyzeContract(address, options = {}) {
 
       // Always add explorer links
       if (chainConfig.blockExplorer) {
-        const explorerBaseUrl = chainConfig.blockExplorer.replace('/api', '');
+        const explorerBaseUrl = chainConfig.blockExplorer.endsWith('/api')
+          ? chainConfig.blockExplorer.slice(0, -4)
+          : chainConfig.blockExplorer;
+
         const explorerLink = `${explorerBaseUrl}/address/${address}`;
         contractInfoTable.push({
           property: 'Explorer Link',

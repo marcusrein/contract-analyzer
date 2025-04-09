@@ -139,28 +139,28 @@ async function getContractInfo(
         `${blockExplorerUrl}?module=contract&action=getsourcecode&address=${contractAddress}&apikey=${explorerApiKey}`
       );
     } catch (fetchError) {
-      throw new Error(
-        `NETWORK_ERROR: Failed to connect to block explorer API: ${fetchError.message}. Please check your internet connection.`
-      );
+      console.error(`❌ Network error fetching source for ${contractAddress}: ${fetchError.message}`);
+      throw new Error(`NETWORK_ERROR: Failed to connect to block explorer API: ${fetchError.message}. Please check your internet connection.`);
     }
 
     if (!response.ok) {
-      throw new Error(
-        `NETWORK_ERROR: Block explorer API returned status ${response.status}: ${response.statusText}`
-      );
+      const errorBody = await response.text(); // Attempt to get body for more context
+      console.error(`❌ API Error fetching source for ${contractAddress}: HTTP ${response.status} ${response.statusText}. Body: ${errorBody}`);
+      throw new Error(`NETWORK_ERROR: Block explorer API returned status ${response.status}: ${response.statusText}`);
     }
 
     let data;
     try {
       data = await response.json();
     } catch (jsonError) {
-      throw new Error(
-        `NETWORK_ERROR: Failed to parse response from block explorer: ${jsonError.message}`
-      );
+      console.error(`❌ JSON Parsing Error fetching source for ${contractAddress}: ${jsonError.message}`);
+      throw new Error(`NETWORK_ERROR: Failed to parse response from block explorer: ${jsonError.message}`);
     }
 
     if (data.status !== '1') {
-      console.warn(`Warning: Block explorer returned non-success status: ${data.message}`);
+      console.warn(
+        `⚠️ API Warning fetching source for ${contractAddress}: Status ${data.status}, Message: ${data.message || ''}. Result: ${data.result || ''}`,
+      );
     }
 
     if (!data.result || !Array.isArray(data.result) || data.result.length === 0) {
@@ -248,12 +248,20 @@ async function getContractInfo(
           `${blockExplorerUrl}?module=contract&action=getsourcecode&address=${implementation}&apikey=${explorerApiKey}`
         );
         if (!implResponse.ok) {
+          const implErrorBody = await implResponse.text();
           console.warn(
-            `Warning: Could not fetch implementation ABI (HTTP ${implResponse.status}).`
+            `⚠️ API Error fetching implementation ABI for ${implementation}: HTTP ${implResponse.status} ${implResponse.statusText}. Body: ${implErrorBody}`,
           );
         } else {
-          const implData = await implResponse.json();
-          if (implData.status === '1' && implData.result && implData.result.length > 0) {
+          let implData;
+          try {
+            implData = await implResponse.json();
+          } catch (implJsonError) {
+            console.warn(`⚠️ JSON Parsing Error fetching implementation ABI for ${implementation}: ${implJsonError.message}`);
+            implData = null; // Ensure implData is null if parsing fails
+          }
+
+          if (implData && implData.status === '1' && implData.result && implData.result.length > 0) {
             const implContractData = implData.result[0];
             implementationContractName = implContractData.ContractName || ''; // Store name
             if (
@@ -277,15 +285,18 @@ async function getContractInfo(
                 `Warning: Implementation contract (${implementation}) source code not verified or ABI is empty.`
               );
             }
-          } else {
+          } else if (implData) {
             console.warn(
-              `Warning: Could not retrieve implementation contract data: ${implData.message || 'Unknown API error'}`
+              `⚠️ API Warning fetching implementation ABI for ${implementation}: Status ${implData.status}, Message: ${implData.message || ''}. Result: ${implData.result || ''}`,
             );
+          } else if (implResponse.ok) {
+            // This case means JSON parsing failed earlier
+            console.warn(`⚠️ Could not retrieve implementation contract data for ${implementation} due to JSON parsing error.`);
           }
         }
       } catch (implFetchError) {
         console.warn(
-          `Warning: Error fetching implementation contract info: ${implFetchError.message}`
+          `⚠️ Network Error fetching implementation contract info for ${implementation}: ${implFetchError.message}`
         );
       }
     }

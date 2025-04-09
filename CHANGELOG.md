@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1] - 2024-04-09
+
+### Fixed
+
+- Improved API error handling and logging for various block explorer calls (source fetch, creation check, latest block, events) to provide clearer diagnostics on failures (e.g., `NOTOK` messages, rate limits).
+- Corrected the check for the `eth_blockNumber` API response format to handle standard JSON-RPC structure.
+- Fixed incorrect generation of block explorer links in the output table.
+
 ## [1.2.0] - 2024-04-09
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "contract-analyzer",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "A powerful command-line tool for analyzing smart contracts on Ethereum and other EVM-compatible blockchains.",
   "type": "module",
   "main": "startBlock.js",

@@ -75,10 +75,29 @@ export async function getDeploymentBlock(
     console.log('📝 Verifying contract address using block explorer...');
 
     // First try to get the contract source code - this will tell us if it's a contract
-    const sourceRequest = await fetch(
-      `${explorerApiUrl}?module=contract&action=getsourcecode&address=${address}&apikey=${apiKey}`,
-    );
-    const sourceData = await sourceRequest.json();
+    let sourceRequest;
+    try {
+      sourceRequest = await fetch(
+        `${explorerApiUrl}?module=contract&action=getsourcecode&address=${address}&apikey=${apiKey}`,
+      );
+    } catch (fetchError) {
+      console.error(`❌ Network error fetching initial source for ${address}: ${fetchError.message}`);
+      throw new Error(`NETWORK_ERROR: Failed to connect to block explorer API: ${fetchError.message}.`);
+    }
+
+    if (!sourceRequest.ok) {
+      const errorBody = await sourceRequest.text();
+      console.error(`❌ API Error fetching initial source for ${address}: HTTP ${sourceRequest.status} ${sourceRequest.statusText}. Body: ${errorBody}`);
+      throw new Error(`NETWORK_ERROR: Block explorer API returned status ${sourceRequest.status}: ${sourceRequest.statusText}`);
+    }
+
+    let sourceData;
+    try {
+      sourceData = await sourceRequest.json();
+    } catch (jsonError) {
+      console.error(`❌ JSON Parsing Error fetching initial source for ${address}: ${jsonError.message}`);
+      throw new Error(`NETWORK_ERROR: Failed to parse response from block explorer: ${jsonError.message}`);
+    }
 
     // If it returns with status 1 and has a result, but the ABI is "Contract source code not verified",
     // it's likely still a contract, just not verified
@@ -92,10 +111,29 @@ export async function getDeploymentBlock(
       console.log('✅ Address confirmed as a contract');
     } else {
       // Double check with contract creation endpoint
-      const creationRequest = await fetch(
-        `${explorerApiUrl}?module=contract&action=getcontractcreation&contractaddresses=${address}&apikey=${apiKey}`,
-      );
-      const creationData = await creationRequest.json();
+      let creationRequest;
+      try {
+        creationRequest = await fetch(
+          `${explorerApiUrl}?module=contract&action=getcontractcreation&contractaddresses=${address}&apikey=${apiKey}`,
+        );
+      } catch (fetchError) {
+        console.error(`❌ Network error fetching contract creation for ${address}: ${fetchError.message}`);
+        throw new Error(`NETWORK_ERROR: Failed to connect to block explorer API: ${fetchError.message}.`);
+      }
+
+      if (!creationRequest.ok) {
+        const errorBody = await creationRequest.text();
+        console.error(`❌ API Error fetching contract creation for ${address}: HTTP ${creationRequest.status} ${creationRequest.statusText}. Body: ${errorBody}`);
+        throw new Error(`NETWORK_ERROR: Block explorer API returned status ${creationRequest.status}: ${creationRequest.statusText}`);
+      }
+
+      let creationData;
+      try {
+        creationData = await creationRequest.json();
+      } catch (jsonError) {
+        console.error(`❌ JSON Parsing Error fetching contract creation for ${address}: ${jsonError.message}`);
+        throw new Error(`NETWORK_ERROR: Failed to parse response from block explorer: ${jsonError.message}`);
+      }
 
       if (creationData.status === '1' && creationData.result && creationData.result.length > 0) {
         console.log('✅ Address confirmed as a contract via creation transaction');
@@ -213,10 +251,41 @@ async function analyzeContractFromBlockscanner(
 ) {
   // Get the latest block using the explorer API
   console.log('📝 Fetching latest block...');
-  const blockResponse = await fetch(
-    `${explorerApiUrl}?module=proxy&action=eth_blockNumber&apikey=${apiKey}`,
-  );
-  const blockData = await blockResponse.json();
+  let blockResponse;
+  try {
+    blockResponse = await fetch(
+      `${explorerApiUrl}?module=proxy&action=eth_blockNumber&apikey=${apiKey}`,
+    );
+  } catch (fetchError) {
+    console.error(`❌ Network error fetching latest block: ${fetchError.message}`);
+    throw new Error(`NETWORK_ERROR: Failed to connect to block explorer API: ${fetchError.message}.`);
+  }
+
+  if (!blockResponse.ok) {
+    const errorBody = await blockResponse.text();
+    console.error(`❌ API Error fetching latest block: HTTP ${blockResponse.status} ${blockResponse.statusText}. Body: ${errorBody}`);
+    throw new Error(`NETWORK_ERROR: Block explorer API returned status ${blockResponse.status}: ${blockResponse.statusText}`);
+  }
+  
+  let blockData;
+  try {
+    blockData = await blockResponse.json();
+  } catch (jsonError) {
+    console.error(`❌ JSON Parsing Error fetching latest block: ${jsonError.message}`);
+    throw new Error(`NETWORK_ERROR: Failed to parse response from block explorer: ${jsonError.message}`);
+  }
+
+  // Log the raw response for debugging
+  console.log('Raw blockData:', JSON.stringify(blockData, null, 2));
+
+  // Check only for the existence of result for JSON-RPC response
+  if (!blockData.result) {
+    console.error(
+      `❌ Could not determine latest block. Status: ${blockData.status}, Message: ${blockData.message || ''}. Cannot proceed with analysis.`,
+    );
+    return null;
+  }
+
   const latestBlock = parseInt(blockData.result, 16);
 
   console.log(`✅ Latest block: ${latestBlock}`);
@@ -293,29 +362,46 @@ async function analyzeContractFromBlockscanner(
         console.log(`📝 Chunk ${i + 1}/${numChunks} (${progress}%) ${progressBar}`);
 
         // Try both Transfer and Assign events (common in NFT contracts like CryptoPunks)
-        const fetchedEvents = await fetch(
-          `${explorerApiUrl}?module=logs&action=getLogs&fromBlock=${fromBlock}&toBlock=${toBlock}&address=${address}&apikey=${apiKey}`,
-        );
-
+        let fetchedEventsResponse;
         try {
-          const eventsData = await fetchedEvents.json();
+          fetchedEventsResponse = await fetch(
+            `${explorerApiUrl}?module=logs&action=getLogs&fromBlock=${fromBlock}&toBlock=${toBlock}&address=${address}&apikey=${apiKey}`,
+          );
+        } catch (fetchError) {
+          console.warn(`⚠️ Network Error fetching events chunk ${i + 1}: ${fetchError.message}. Skipping chunk.`);
+          continue; // Skip this chunk
+        }
 
-          if (eventsData.status === '1' && eventsData.result) {
-            const newEvents = eventsData.result.length;
-            console.log(`✅ Found ${newEvents} events (${events.length + newEvents} total)`);
-            events = events.concat(eventsData.result);
+        if (!fetchedEventsResponse.ok) {
+          const errorBody = await fetchedEventsResponse.text();
+          console.warn(
+            `⚠️ API Error fetching events chunk ${i + 1}: HTTP ${fetchedEventsResponse.status} ${fetchedEventsResponse.statusText}. Body: ${errorBody}. Skipping chunk.`,
+          );
+          continue; // Skip this chunk
+        }
+        
+        let eventsData;
+        try {
+          eventsData = await fetchedEventsResponse.json();
+        } catch (jsonError) {
+          console.warn(`⚠️ JSON Parsing Error fetching events chunk ${i + 1}: ${jsonError.message}. Skipping chunk.`);
+          continue; // Skip this chunk
+        }
 
-            if (events.length > maxEventsToFetch) {
-              console.log(`⚠️ Reached ${maxEventsToFetch} event limit. Trimming excess.`);
-              events = events.slice(0, maxEventsToFetch);
-            }
-          } else {
-            console.log(
-              `⚠️ No events in chunk ${i + 1} or API error: ${eventsData.message || 'Unknown'}`,
-            );
+        if (eventsData.status === '1' && eventsData.result) {
+          const newEvents = eventsData.result.length;
+          console.log(`✅ Found ${newEvents} events (${events.length + newEvents} total)`);
+          events = events.concat(eventsData.result);
+
+          if (events.length > maxEventsToFetch) {
+            console.log(`⚠️ Reached ${maxEventsToFetch} event limit. Trimming excess.`);
+            events = events.slice(0, maxEventsToFetch);
           }
-        } catch (chunkError) {
-          console.error(`❌ Error processing chunk ${i + 1}: ${chunkError.message}`);
+        } else {
+          console.warn(
+            `⚠️ API Warning fetching events chunk ${i + 1}: Status ${eventsData.status}, Message: ${eventsData.message || 'Unknown'}. Skipping chunk.`,
+          );
+          // continue; // Already handled by skipping if status !== '1'
         }
 
         // Add a slight delay to avoid rate limiting
