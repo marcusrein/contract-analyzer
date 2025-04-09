@@ -24,7 +24,7 @@ export async function getDeploymentBlock(
   apiKey,
   blockRange = 1000,
   explorerApiUrl,
-  chainName = 'ethereum'
+  chainName = 'ethereum',
 ) {
   if (!apiKey) {
     console.error('❌ No explorer API key provided');
@@ -66,7 +66,7 @@ export async function getDeploymentBlock(
       knownContract.deploymentBlock,
       apiKey,
       explorerApiUrl,
-      chainName
+      chainName,
     );
   }
 
@@ -76,7 +76,7 @@ export async function getDeploymentBlock(
 
     // First try to get the contract source code - this will tell us if it's a contract
     const sourceRequest = await fetch(
-      `${explorerApiUrl}?module=contract&action=getsourcecode&address=${address}&apikey=${apiKey}`
+      `${explorerApiUrl}?module=contract&action=getsourcecode&address=${address}&apikey=${apiKey}`,
     );
     const sourceData = await sourceRequest.json();
 
@@ -93,7 +93,7 @@ export async function getDeploymentBlock(
     } else {
       // Double check with contract creation endpoint
       const creationRequest = await fetch(
-        `${explorerApiUrl}?module=contract&action=getcontractcreation&contractaddresses=${address}&apikey=${apiKey}`
+        `${explorerApiUrl}?module=contract&action=getcontractcreation&contractaddresses=${address}&apikey=${apiKey}`,
       );
       const creationData = await creationRequest.json();
 
@@ -101,7 +101,7 @@ export async function getDeploymentBlock(
         console.log('✅ Address confirmed as a contract via creation transaction');
       } else {
         console.error(
-          '⚠️ The address provided may not be a contract or is not found on this network'
+          '⚠️ The address provided may not be a contract or is not found on this network',
         );
         return null;
       }
@@ -123,7 +123,7 @@ export async function getDeploymentBlock(
       deploymentBlock,
       apiKey,
       explorerApiUrl,
-      chainName
+      chainName,
     );
   } catch (error) {
     let errorMessage = error.message;
@@ -209,12 +209,12 @@ async function analyzeContractFromBlockscanner(
   deploymentBlock,
   apiKey,
   explorerApiUrl,
-  chainName = 'ethereum'
+  chainName = 'ethereum',
 ) {
   // Get the latest block using the explorer API
   console.log('📝 Fetching latest block...');
   const blockResponse = await fetch(
-    `${explorerApiUrl}?module=proxy&action=eth_blockNumber&apikey=${apiKey}`
+    `${explorerApiUrl}?module=proxy&action=eth_blockNumber&apikey=${apiKey}`,
   );
   const blockData = await blockResponse.json();
   const latestBlock = parseInt(blockData.result, 16);
@@ -229,7 +229,7 @@ async function analyzeContractFromBlockscanner(
 
   if (!contractInfo) {
     console.log(
-      '⚠️ Could not retrieve contract information. The block explorer API may be unavailable or rate limited.'
+      '⚠️ Could not retrieve contract information. The block explorer API may be unavailable or rate limited.',
     );
     console.log('ℹ️ Continuing analysis with limited data (unverified contract)...');
   } else {
@@ -266,7 +266,7 @@ async function analyzeContractFromBlockscanner(
     // Check how many blocks we need to scan
     const blocksToScan = latestBlock - deploymentBlock;
     console.log(
-      `📊 Scanning ${blocksToScan.toLocaleString()} blocks (${deploymentBlock} → ${latestBlock})`
+      `📊 Scanning ${blocksToScan.toLocaleString()} blocks (${deploymentBlock} → ${latestBlock})`,
     );
 
     // Split into smaller ranges if needed
@@ -294,7 +294,7 @@ async function analyzeContractFromBlockscanner(
 
         // Try both Transfer and Assign events (common in NFT contracts like CryptoPunks)
         const fetchedEvents = await fetch(
-          `${explorerApiUrl}?module=logs&action=getLogs&fromBlock=${fromBlock}&toBlock=${toBlock}&address=${address}&apikey=${apiKey}`
+          `${explorerApiUrl}?module=logs&action=getLogs&fromBlock=${fromBlock}&toBlock=${toBlock}&address=${address}&apikey=${apiKey}`,
         );
 
         try {
@@ -311,7 +311,7 @@ async function analyzeContractFromBlockscanner(
             }
           } else {
             console.log(
-              `⚠️ No events in chunk ${i + 1} or API error: ${eventsData.message || 'Unknown'}`
+              `⚠️ No events in chunk ${i + 1} or API error: ${eventsData.message || 'Unknown'}`,
             );
           }
         } catch (chunkError) {
@@ -324,7 +324,7 @@ async function analyzeContractFromBlockscanner(
     } else {
       // If range is small enough, fetch in one go
       const eventsResponse = await fetch(
-        `${explorerApiUrl}?module=logs&action=getLogs&fromBlock=${deploymentBlock}&toBlock=latest&address=${address}&apikey=${apiKey}`
+        `${explorerApiUrl}?module=logs&action=getLogs&fromBlock=${deploymentBlock}&toBlock=latest&address=${address}&apikey=${apiKey}`,
       );
       const eventsData = await eventsResponse.json();
 
@@ -387,7 +387,7 @@ async function analyzeContractFromBlockscanner(
 
   // Save source code to file if available
   if (contractInfo?.sourceCode) {
-    let sourceCode = contractInfo.sourceCode;
+    const sourceCode = contractInfo.sourceCode;
 
     // Check if the source code is in JSON format
     if (sourceCode.trim().startsWith('{') || sourceCode.trim().startsWith('{{')) {
@@ -428,7 +428,7 @@ async function analyzeContractFromBlockscanner(
 
           await fs.writeFile(
             path.join(contractDir, 'manifest.json'),
-            JSON.stringify(manifest, null, 2)
+            JSON.stringify(manifest, null, 2),
           );
 
           console.log(`📋 Contract manifest saved to ${folderName}/contract/manifest.json`);
@@ -485,10 +485,10 @@ async function analyzeContractFromBlockscanner(
 
     await fs.writeFile(
       path.join(outputDir, 'event-information.json'),
-      JSON.stringify(eventsData, null, 2)
+      JSON.stringify(eventsData, null, 2),
     );
     console.log(
-      `💾 Events saved to ${folderName}/event-information.json (3 examples per event type)`
+      `💾 Events saved to ${folderName}/event-information.json (3 examples per event type)`,
     );
   } else {
     // Even if no events were found, create a basic event information file
@@ -506,10 +506,10 @@ async function analyzeContractFromBlockscanner(
 
     await fs.writeFile(
       path.join(outputDir, 'event-information.json'),
-      JSON.stringify(emptyEventsData, null, 2)
+      JSON.stringify(emptyEventsData, null, 2),
     );
     console.log(
-      `💾 Empty events file saved to ${folderName}/event-information.json (no events found)`
+      `💾 Empty events file saved to ${folderName}/event-information.json (no events found)`,
     );
   }
 

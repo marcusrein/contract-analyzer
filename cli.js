@@ -672,7 +672,10 @@ async function analyzeContract(address, options = {}) {
           (result.contractInfo?.isVerified === false ? '(Contract not verified)' : 'Unknown'),
       },
       { property: 'Network', value: chainConfig.name },
-      { property: 'Deployment Block', value: result.deploymentBlock || 'Unknown' },
+      {
+        property: 'Deployment Block',
+        value: result.deploymentBlock || 'Unknown',
+      },
       {
         property: 'Verified',
         value: result.contractInfo?.isVerified

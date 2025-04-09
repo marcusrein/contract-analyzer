@@ -32,7 +32,7 @@ try {
 }
 
 // Function to prompt for input
-const prompt = (query) =>
+const prompt = query =>
   new Promise(resolve => {
     const rl = readline.createInterface({
       input: process.stdin,

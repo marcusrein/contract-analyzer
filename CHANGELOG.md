@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0] - 2024-04-09
+
+### Added
+
+- **Combined ABI Generation:** When analyzing a proxy contract (`cana analyze <address>`), if the implementation contract is also verified on the block explorer, the tool now automatically fetches both ABIs, merges them, and saves the result to `contracts-analyzed/<chain>/<proxy_address>/Combined.abi.json`.
+
+### Fixed
+
+- Resolved issue where combined ABI was saved even if implementation fetch failed.
+- Fixed bug causing incorrect "contract not verified" warnings to display for verified contracts.
+- Corrected various code style and linting issues identified by Prettier/ESLint.
+
 ## [1.1.7] - 2024-03-25
 
 ### Added
@@ -45,10 +57,9 @@
 - Improved logging for contract analysis
 - Handling of unverified contracts
 
-### Fixed
+### Changed
 
-- Chain configuration loading issues
-- Minor display formatting in CLI output
+- Analysis output now saved to `contracts-analyzed/<chain>/<contract_name_or_address>/`.
 
 ## [1.0.6] - 2024-03-21
 
@@ -67,3 +78,11 @@
 ### Fixed
 
 - `cana setup` errors
+
+## [1.0.0] - 2024-03-21
+
+- Initial release.
+- Core contract analysis features (deployment block, verification status, ABI, source code).
+- Basic proxy detection.
+- Event analysis.
+- Saves output to `contracts-analyzed/`.
