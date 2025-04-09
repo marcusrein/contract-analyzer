@@ -109,7 +109,7 @@ async function getContractInfo(
   rpcUrl,
   contractAddress,
   explorerApiKey,
-  blockExplorerUrl = 'https://api.etherscan.io/api'
+  blockExplorerUrl = 'https://api.etherscan.io/api',
 ) {
   try {
     // Validate input parameters
@@ -136,25 +136,37 @@ async function getContractInfo(
     let response;
     try {
       response = await fetch(
-        `${blockExplorerUrl}?module=contract&action=getsourcecode&address=${contractAddress}&apikey=${explorerApiKey}`
+        `${blockExplorerUrl}?module=contract&action=getsourcecode&address=${contractAddress}&apikey=${explorerApiKey}`,
       );
     } catch (fetchError) {
-      console.error(`❌ Network error fetching source for ${contractAddress}: ${fetchError.message}`);
-      throw new Error(`NETWORK_ERROR: Failed to connect to block explorer API: ${fetchError.message}. Please check your internet connection.`);
+      console.error(
+        `❌ Network error fetching source for ${contractAddress}: ${fetchError.message}`,
+      );
+      throw new Error(
+        `NETWORK_ERROR: Failed to connect to block explorer API: ${fetchError.message}. Please check your internet connection.`,
+      );
     }
 
     if (!response.ok) {
       const errorBody = await response.text(); // Attempt to get body for more context
-      console.error(`❌ API Error fetching source for ${contractAddress}: HTTP ${response.status} ${response.statusText}. Body: ${errorBody}`);
-      throw new Error(`NETWORK_ERROR: Block explorer API returned status ${response.status}: ${response.statusText}`);
+      console.error(
+        `❌ API Error fetching source for ${contractAddress}: HTTP ${response.status} ${response.statusText}. Body: ${errorBody}`,
+      );
+      throw new Error(
+        `NETWORK_ERROR: Block explorer API returned status ${response.status}: ${response.statusText}`,
+      );
     }
 
     let data;
     try {
       data = await response.json();
     } catch (jsonError) {
-      console.error(`❌ JSON Parsing Error fetching source for ${contractAddress}: ${jsonError.message}`);
-      throw new Error(`NETWORK_ERROR: Failed to parse response from block explorer: ${jsonError.message}`);
+      console.error(
+        `❌ JSON Parsing Error fetching source for ${contractAddress}: ${jsonError.message}`,
+      );
+      throw new Error(
+        `NETWORK_ERROR: Failed to parse response from block explorer: ${jsonError.message}`,
+      );
     }
 
     if (data.status !== '1') {
@@ -165,7 +177,7 @@ async function getContractInfo(
 
     if (!data.result || !Array.isArray(data.result) || data.result.length === 0) {
       console.log(
-        '⚠️ Contract data not found or API error. Creating limited information object...'
+        '⚠️ Contract data not found or API error. Creating limited information object...',
       );
       // Return a minimal object instead of null for unverified/unknown contracts
       return {
@@ -244,8 +256,10 @@ async function getContractInfo(
     if (isProxy && implementation && ethers.isAddress(implementation)) {
       console.log(`\n🔎 Fetching implementation contract info for ${implementation}...`);
       try {
+        // Add a delay before fetching implementation to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Increased delay to 3000ms (3 seconds)
         const implResponse = await fetch(
-          `${blockExplorerUrl}?module=contract&action=getsourcecode&address=${implementation}&apikey=${explorerApiKey}`
+          `${blockExplorerUrl}?module=contract&action=getsourcecode&address=${implementation}&apikey=${explorerApiKey}`,
         );
         if (!implResponse.ok) {
           const implErrorBody = await implResponse.text();
@@ -257,11 +271,18 @@ async function getContractInfo(
           try {
             implData = await implResponse.json();
           } catch (implJsonError) {
-            console.warn(`⚠️ JSON Parsing Error fetching implementation ABI for ${implementation}: ${implJsonError.message}`);
+            console.warn(
+              `⚠️ JSON Parsing Error fetching implementation ABI for ${implementation}: ${implJsonError.message}`,
+            );
             implData = null; // Ensure implData is null if parsing fails
           }
 
-          if (implData && implData.status === '1' && implData.result && implData.result.length > 0) {
+          if (
+            implData &&
+            implData.status === '1' &&
+            implData.result &&
+            implData.result.length > 0
+          ) {
             const implContractData = implData.result[0];
             implementationContractName = implContractData.ContractName || ''; // Store name
             if (
@@ -277,12 +298,12 @@ async function getContractInfo(
                 console.log(`✅ Combined ABI created.`);
               } catch (implAbiError) {
                 console.warn(
-                  `Warning: Could not parse implementation ABI: ${implAbiError.message}`
+                  `Warning: Could not parse implementation ABI: ${implAbiError.message}`,
                 );
               }
             } else {
               console.warn(
-                `Warning: Implementation contract (${implementation}) source code not verified or ABI is empty.`
+                `Warning: Implementation contract (${implementation}) source code not verified or ABI is empty.`,
               );
             }
           } else if (implData) {
@@ -291,12 +312,14 @@ async function getContractInfo(
             );
           } else if (implResponse.ok) {
             // This case means JSON parsing failed earlier
-            console.warn(`⚠️ Could not retrieve implementation contract data for ${implementation} due to JSON parsing error.`);
+            console.warn(
+              `⚠️ Could not retrieve implementation contract data for ${implementation} due to JSON parsing error.`,
+            );
           }
         }
       } catch (implFetchError) {
         console.warn(
-          `⚠️ Network Error fetching implementation contract info for ${implementation}: ${implFetchError.message}`
+          `⚠️ Network Error fetching implementation contract info for ${implementation}: ${implFetchError.message}`,
         );
       }
     }
@@ -449,7 +472,7 @@ async function getEventsFromExplorer(
   explorerApiKey,
   fromBlock,
   toBlock,
-  topic0 = null
+  topic0 = null,
 ) {
   try {
     console.log(`🔍 Fetching events from block ${fromBlock} to ${toBlock}...`);
@@ -465,7 +488,7 @@ async function getEventsFromExplorer(
 
     if (!response.ok) {
       console.error(
-        `❌ Block explorer API request failed: ${response.status} ${response.statusText}`
+        `❌ Block explorer API request failed: ${response.status} ${response.statusText}`,
       );
       return [];
     }
@@ -490,7 +513,7 @@ async function getEventsFromExplorer(
           explorerApiKey,
           fromBlock,
           midBlock,
-          topic0
+          topic0,
         );
 
         // Get events from second half
@@ -500,7 +523,7 @@ async function getEventsFromExplorer(
           explorerApiKey,
           midBlock + 1,
           toBlock,
-          topic0
+          topic0,
         );
 
         // Combine results
@@ -536,7 +559,7 @@ async function getContractEvents(
   fromBlock,
   toBlock,
   blockExplorerUrl = 'https://api.etherscan.io/api',
-  explorerApiKey
+  explorerApiKey,
 ) {
   // For backward compatibility, extract explorer API key from environment if not provided
   if (!explorerApiKey) {
@@ -554,7 +577,7 @@ async function getContractEvents(
       contractAddress,
       explorerApiKey,
       fromBlock,
-      toBlock
+      toBlock,
     );
   } catch (error) {
     console.error(`Error getting contract events: ${error.message}`);

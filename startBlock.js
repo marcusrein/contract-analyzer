@@ -13,7 +13,6 @@ import fs from 'fs/promises';
  * @param {string} rpcUrl - Not used - kept for backward compatibility
  * @param {string} address - Contract address
  * @param {string} apiKey - Block explorer API key
- * @param {number} blockRange - Block range to use if we need to fetch events (unused for deployment block detection)
  * @param {string} explorerApiUrl - The explorer API URL
  * @param {string} chainName - The name of the chain being analyzed
  * @returns {Promise<Object>} The object containing contract, deployment info and ABI
@@ -22,7 +21,6 @@ export async function getDeploymentBlock(
   rpcUrl,
   address,
   apiKey,
-  blockRange = 1000,
   explorerApiUrl,
   chainName = 'ethereum',
 ) {
@@ -81,22 +79,34 @@ export async function getDeploymentBlock(
         `${explorerApiUrl}?module=contract&action=getsourcecode&address=${address}&apikey=${apiKey}`,
       );
     } catch (fetchError) {
-      console.error(`❌ Network error fetching initial source for ${address}: ${fetchError.message}`);
-      throw new Error(`NETWORK_ERROR: Failed to connect to block explorer API: ${fetchError.message}.`);
+      console.error(
+        `❌ Network error fetching initial source for ${address}: ${fetchError.message}`,
+      );
+      throw new Error(
+        `NETWORK_ERROR: Failed to connect to block explorer API: ${fetchError.message}.`,
+      );
     }
 
     if (!sourceRequest.ok) {
       const errorBody = await sourceRequest.text();
-      console.error(`❌ API Error fetching initial source for ${address}: HTTP ${sourceRequest.status} ${sourceRequest.statusText}. Body: ${errorBody}`);
-      throw new Error(`NETWORK_ERROR: Block explorer API returned status ${sourceRequest.status}: ${sourceRequest.statusText}`);
+      console.error(
+        `❌ API Error fetching initial source for ${address}: HTTP ${sourceRequest.status} ${sourceRequest.statusText}. Body: ${errorBody}`,
+      );
+      throw new Error(
+        `NETWORK_ERROR: Block explorer API returned status ${sourceRequest.status}: ${sourceRequest.statusText}`,
+      );
     }
 
     let sourceData;
     try {
       sourceData = await sourceRequest.json();
     } catch (jsonError) {
-      console.error(`❌ JSON Parsing Error fetching initial source for ${address}: ${jsonError.message}`);
-      throw new Error(`NETWORK_ERROR: Failed to parse response from block explorer: ${jsonError.message}`);
+      console.error(
+        `❌ JSON Parsing Error fetching initial source for ${address}: ${jsonError.message}`,
+      );
+      throw new Error(
+        `NETWORK_ERROR: Failed to parse response from block explorer: ${jsonError.message}`,
+      );
     }
 
     // If it returns with status 1 and has a result, but the ABI is "Contract source code not verified",
@@ -405,7 +415,7 @@ async function analyzeContractFromBlockscanner(
         }
 
         // Add a slight delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay to 1000ms (1 second)
       }
     } else {
       // If range is small enough, fetch in one go
@@ -462,13 +472,32 @@ async function analyzeContractFromBlockscanner(
   const contractDir = path.join(outputDir, 'contract');
   await fs.mkdir(contractDir, { recursive: true });
 
-  // Save ABI to file
+  // Save Proxy ABI to file
   if (contractInfo?.abi) {
-    await fs.writeFile(path.join(outputDir, 'abi.json'), JSON.stringify(contractInfo.abi, null, 2));
-    console.log(`💾 ABI saved to ${folderName}/abi.json`);
+    await fs.writeFile(
+      path.join(outputDir, 'abi.json'), // Save as abi.json (proxy ABI)
+      JSON.stringify(contractInfo.abi, null, 2),
+    );
+    console.log(`💾 Proxy ABI saved to ${folderName}/abi.json`);
+  }
+
+  // Save Combined ABI to file if it exists
+  if (contractInfo?.combinedAbi) {
+    await fs.writeFile(
+      path.join(outputDir, 'combined.abi.json'), // Save as combined.abi.json
+      JSON.stringify(contractInfo.combinedAbi, null, 2),
+    );
+    console.log(`💾 Combined ABI saved to ${folderName}/combined.abi.json`);
+  } else if (contractInfo?.proxy && contractInfo?.implementation) {
+    // Only log warning if it was expected (proxy with implementation) but failed
+    console.log(
+      'ℹ️ Combined ABI not generated (likely due to implementation fetch failure). Only Proxy ABI saved.',
+    );
+  } else if (!contractInfo?.proxy) {
+    // If not a proxy, the main ABI is the only one
+    console.log('ℹ️ Not a proxy contract, only standard ABI saved.');
   } else {
-    console.log('ℹ️ No ABI available for this contract (not verified)');
-    // Should never reach here as we now skip unverified contracts
+    console.log('ℹ️ Combined ABI not available.'); // General case
   }
 
   // Save source code to file if available

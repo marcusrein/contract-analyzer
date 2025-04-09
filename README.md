@@ -85,8 +85,9 @@ When analyzing a contract, Cana creates the following structure wherever you run
 ```
 contracts-analyzed/
 └── ContractName_chainName_YYYY-MM-DD/
-  ├── contract/            # Folder for individual contract files
-  ├── abi.json              # Contract ABI
+  ├── contract/            # Folder for individual contract source files (if available)
+  ├── abi.json              # Contract ABI (or Proxy ABI if it's a proxy)
+  ├── combined.abi.json    # Combined Proxy + Implementation ABI (if applicable and successful)
   └── event-information.json # Event signatures and examples
 ```
 
@@ -159,16 +160,12 @@ When you analyze a known proxy contract like USDC on Ethereum:
 cana analyze 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 -c ethereum
 ```
 
-If both the proxy and its implementation are verified, the output directory will contain:
+If both the proxy and its implementation are verified, the output directory (`contracts-analyzed/ContractName_chainName_YYYY-MM-DD/`) will contain:
 
 ```
-contracts-analyzed/
-└── ethereum/
-    └── 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48/
         ├── abi.json                     # Proxy ABI
-        ├── Combined.abi.json            # Merged Proxy + Implementation ABI
+        ├── combined.abi.json            # Merged Proxy + Implementation ABI
         ├── contract/
-        │   └── contract_source.sol      # Proxy Source Code
-        ├── event-information.json       # Decoded Events
-        └── 0xa0b869..._analysis.json    # Full analysis results
+        │   └── contract_source.sol      # Proxy Source Code (if available)
+        └── event-information.json       # Decoded Events
 ```

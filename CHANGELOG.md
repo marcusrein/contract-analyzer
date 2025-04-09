@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0] - 2024-04-09
+
+### Added
+
+- Added explicit saving of the `combinedAbi` to `combined.abi.json` in the output directory when analyzing proxy contracts.
+- Added more informative logging when combined ABI generation fails (e.g., due to implementation fetch failure).
+
+### Fixed
+
+- Significantly increased delays before/during block explorer API calls (implementation fetch, event fetching) to mitigate rate limiting issues.
+- Fixed `Failed to parse URL` error caused by incorrect argument passing to `getDeploymentBlock` after parameter removal.
+- Removed unused `blockRange` parameter from `getDeploymentBlock` function.
+
 ## [1.2.1] - 2024-04-09
 
 ### Fixed

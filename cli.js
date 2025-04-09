@@ -645,9 +645,8 @@ async function analyzeContract(address, options = {}) {
       null,
       address,
       explorerApiKey,
-      parseInt(options.blockRange || 1000),
       chainConfig.blockExplorer,
-      chain
+      chain,
     );
 
     if (!result) {
